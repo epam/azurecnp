@@ -1,0 +1,33 @@
+parameters:
+- name: rootDir
+  type: string
+  default: "$(System.DefaultWorkingDirectory)"
+
+steps:
+- task: qetza.replacetokens.replacetokens-task.replacetokens@3
+  displayName: 'Inject Application and Environment Values'
+  inputs:
+    targetFiles: '${{ parameters.rootDir }}/Dockerfile'
+    actionOnMissing: fail
+    keepToken: true
+
+- task: PowerShell@2
+  displayName: 'Build and Push docker image'
+  inputs:
+    targetType: 'inline'
+    script: |
+      Write-Host '---- Log in to Azure ----'
+      az login --service-principal -u '$(ENV_AZURE_CLIENT_ID)' -p '$(ENV_AZURE_CLIENT_SECRET)' `
+        --tenant $(ENV_AZURE_TENANT_ID) | ConvertFrom-Json
+      if ($LastExitCode -eq 0){
+        Write-Host "---- Log in to Azure succeeded ----"
+      }else{
+        Write-Error "---- Check your credentials ----"
+      }
+      az account set -s $(ENV_AZURE_SUBSCRIPTION_ID)
+      Write-Host "---- Log in to Azure Container Registry $(ENV_ACR_NAME) ----"
+      az acr login --name $(ENV_ACR_NAME)
+      Write-Host "---- Building an image for $(APP_NAME) ----"
+      az acr build -t $(APP_NAME):$(PIPE_RELEASE_ARTIFACTNAME) -t $(APP_NAME):latest -r $(ENV_ACR_NAME) `
+        --file "${{ parameters.rootDir }}/Dockerfile" `
+        "${{ parameters.rootDir }}"

@@ -1,0 +1,42 @@
+parameters:
+- name: jobName
+  type: string
+  default: 'Helm Test'
+- name: workingDirectory
+  displayName: Full path to the working folder
+  type: string
+  default: '.'
+- name: DependsOn
+  type: object
+  default: []
+
+jobs:
+- job: ${{ replace(parameters.jobName, ' ', '') }}
+  dependsOn: ${{ parameters.DependsOn }}
+  displayName: ${{ parameters.jobName }}
+  workspace:
+    clean: all
+  steps:
+  - pwsh: |
+      Write-Host "`n---- Make sure we are signed in to Azure. ----`n"
+      az login --service-principal -u '$(ENV_AZURE_CLIENT_ID)' -p '$(ENV_AZURE_CLIENT_SECRET)' --tenant $(ENV_AZURE_TENANT_ID) 
+      if ($LastExitCode -eq 0)
+      {
+        Write-Host "Log in to Azure succeeded."
+      }
+      else
+      {
+        Write-Error "`n---- Check your credentials. ----`n"
+      }
+      Write-Host "`n---- Get AKS credentials. ----`n"
+      az aks get-credentials --subscription $(ENV_AZURE_SUBSCRIPTION_ID) `
+        --resource-group "$(ENV_AKS_RG)" `
+        --name "$(ENV_AKS_NAME)" `
+        --file ${{ parameters.workingDirectory }}/.kube/config
+    name: Grab_AKS_config
+    displayName: Grab AKS config
+  - template: ../../operations/tasks/init-helm-deployment.yml
+  - pwsh: |
+      helm test $(APP_NAME)-$(ENV_KUBERNETES_NAMESPACE) -n $(ENV_KUBERNETES_NAMESPACE) --kubeconfig ${{ parameters.workingDirectory }}/.kube/config
+    name: ${{ replace(parameters.jobName, ' ', '') }}
+    displayName: ${{ parameters.jobName }}

@@ -1,0 +1,9 @@
+{{- if or (eq .Values.issuerType "selfsigned") (eq .Values.issuerType "all") -}}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: {{ .Values.namespace }}
+spec:
+  selfSigned: {}
+{{- end }}

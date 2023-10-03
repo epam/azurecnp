@@ -1,0 +1,81 @@
+# Default values for #{APP_NAME}#.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: "#{ENV_ACR_NAME}#.azurecr.io/#{APP_NAME}#"
+  tag: "#{PIPE_RELEASE_ARTIFACTNAME}#"
+  pullPolicy: Always
+
+relativePath: "/"
+
+env:
+  - name: ASPNETCORE_URLS
+    value: http://+:5000
+  - name: CosmosDb__Account
+    value: "https://#{ENV_INFRA_SO_NAME}#-cosdb-#{ENV_INFRA_LOCATION_SHORT}#-#{ENV_INFRA_TYPE}#-#{ENV_INFRA_NAME_PREFIX}#-01.documents.azure.com:443/"
+  - name: CosmosDb__Key
+    value: "#{PIPE_COSMOS_DB_KEY}#"
+  - name: CosmosDb__DatabaseName
+    value: "Tasks-$(ENV_NAME)"
+  - name: ApplicationInsights__InstrumentationKey
+    value: "#{PIPE_APPINS_INSTRUMENTATION_KEY}#"
+
+replicaCount: "#{APP_REPLICA_COUNT}#"
+
+imagePullSecrets: {}
+#  - name: "GLOBAL_DOCKER_SECRET_NAME"
+
+nameOverride: ""
+fullnameOverride: ""
+dnsName: "#{SYS_PROJECT_CODE}#-#{ENV_INFRA_NAME_PREFIX}#-#{ENV_NAME}#.#{ENV_INFRA_LOCATION}#.cloudapp.azure.com"
+
+ingress:
+  enabled: true
+  ingressClassName: nginx-#{ENV_KUBERNETES_NAMESPACE}#
+  annotations:
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/affinity-mode: persistent
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    cert-manager.io/issuer: letsencrypt-#{ENV_KUBERNETES_NAMESPACE}#
+    nginx.ingress.kubernetes.io/enable-modsecurity: "true"
+    nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs: "true"
+    nginx.ingress.kubernetes.io/modsecurity-snippet: |
+      SecRuleEngine On
+
+  tls:
+    - secretName: letsencrypt-#{ENV_KUBERNETES_NAMESPACE}#-tls-secret
+      hosts: 
+        - "#{SYS_PROJECT_CODE}#-#{ENV_INFRA_NAME_PREFIX}#-#{ENV_NAME}#.#{ENV_INFRA_LOCATION}#.cloudapp.azure.com"
+
+service:
+  type: ClusterIP
+  port: 80
+  portHttps: 443
+  targetPort: 5000
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+override: []
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  requests:
+    cpu: "#{APP_K8S_CPU_REQUESTS}#"
+    memory: "#{APP_K8S_MEMORY_REQUESTS}#"
+  limits:
+    cpu: "#{APP_K8S_CPU_LIMITS}#"
+    memory: "#{APP_K8S_MEMORY_LIMITS}#"
+    
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

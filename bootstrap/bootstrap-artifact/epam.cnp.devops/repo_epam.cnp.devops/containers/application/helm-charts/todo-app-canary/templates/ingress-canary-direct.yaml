@@ -1,0 +1,36 @@
+{{- if .Values.ingress.enabled -}}
+{{- $fullName := include "#{APP_NAME}#.fullname" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-canary-direct
+  labels:
+{{ include "#{APP_NAME}#.labels" . | indent 4 }}
+  {{- with .Values.ingress.directAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.ingressClassName }}
+{{- if .Values.ingress.tls }}
+  tls:
+  {{- range .Values.ingress.tls }}
+    - hosts:
+      {{- range .canaryHosts }}
+        - {{ . | quote }}
+      {{- end }}
+      secretName: {{ .canarySecretName }}
+  {{- end }}
+{{- end }}
+  rules:
+  - host: {{ .Values.canaryDirectDnsName }}
+    http:
+      paths:
+        - path: {{ .Values.canaryPath }}
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ include "#{APP_NAME}#.fullname" . }}-canary-direct
+              port:
+                number: {{ .Values.service.port }}
+{{- end }}

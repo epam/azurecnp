@@ -1,0 +1,95 @@
+parameters:
+- name: infraSolutionFolder
+  type: string
+  default: "."
+- name: configurationPath
+  type: string
+- name: terraformConfFileFormat
+  type: string
+  default: tfvars
+- name: terraformRepo
+  type: string
+  default: 'templates'
+- name: tfvariablesRepo
+  type: string
+  default: 'tfvariables'
+ 
+jobs:
+- job: publishArtifact
+  displayName: "Publish Artifact"
+  dependsOn: terraformValidate
+  workspace:
+    clean: all
+  steps:
+  - template: ../../operations/tasks/clone-repositories.yml
+    parameters:
+      repositories:
+      - ${{ parameters.terraformRepo }}
+      - ${{ parameters.tfvariablesRepo }}
+
+  - template: ../tasks/extract-changes-task.yml
+    parameters:
+      infraSolutionFolder: $(Agent.BuildDirectory)/${{ parameters.terraformRepo }}/${{ parameters.infraSolutionFolder }}
+      terraformConfFileFormat: ${{ parameters.terraformConfFileFormat }}
+
+  # Copy Terraform modules
+  - task: CopyFiles@2
+    displayName: 'Copy Terraform modules files'
+    inputs:
+      SourceFolder: $(Agent.BuildDirectory)/${{ parameters.terraformRepo }}/${{ parameters.infraSolutionFolder }}
+      Contents: |
+        *.tf
+        *.tf.json
+        *.xml
+        *.pfx
+        *.tpl
+        *.sh
+        *.ps1
+        *.py
+        notification.html
+        !backend.tf
+        !backend.tf.json
+        !provider.tf
+        !provider.tf.json
+      TargetFolder: '$(Build.ArtifactStagingDirectory)/terraform/${{ parameters.infraSolutionFolder }}'
+
+  # Copy Terraform configuration files
+  - task: CopyFiles@2
+    displayName: 'Copy Terraform configuration files'
+    inputs:
+      SourceFolder: $(Agent.BuildDirectory)/${{ parameters.tfvariablesRepo }}/${{ parameters.configurationPath }}
+      Contents: |
+        *.tfvars
+        *.tfvars.json
+        *.sh
+        *.ps1
+        *.py
+        *.cert
+        *.crt
+        *.pfx
+        *.pem
+        *.pub
+        *.tpl
+      TargetFolder: '$(Build.ArtifactStagingDirectory)/terraform/${{ parameters.infraSolutionFolder }}'
+
+  # Copy Additions backend.tf, provider.tf.
+  - task: CopyFiles@2
+    displayName: 'Copy Terraform global configuration files'
+    inputs:
+      SourceFolder: $(Agent.BuildDirectory)/${{ parameters.terraformRepo }}/iac/terraform/epam.alz.terraform/_configuration/_global
+      Contents: |
+        backend.tf
+        backend.tf.json
+        provider.tf
+        provider.tf.json
+        global.tfvars
+        global.tfvars.json
+      TargetFolder: '$(Build.ArtifactStagingDirectory)/terraform/${{ parameters.infraSolutionFolder }}'
+      overWrite: true
+
+  # Publish all copied files as Artifact
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish artifact'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+      artifactName: "$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}"

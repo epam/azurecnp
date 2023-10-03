@@ -1,0 +1,114 @@
+parameters:
+- name: sourceRepoPath
+  default: $(System.DefaultWorkingDirectory)
+- name: enableSonarCloudAnalyze
+  type: boolean
+  default: false
+- name: dotnetPublish
+  type: boolean
+  default: false
+- name: publishArtifact
+  type: boolean
+  default: false
+
+steps:
+# Install .NET Core sdk
+- task: UseDotNet@2
+  displayName: 'Use .NET Core sdk'
+  inputs:
+    packageType: sdk
+    version: 6.x
+    installationPath: $(Agent.ToolsDirectory)/dotnet
+
+# SonarQube Prepare
+- task: SonarQubePrepare@5
+  enabled: ${{ parameters.enableSonarCloudAnalyze }}
+  inputs:
+    SonarQube: '$(SYS_SONAR_ENDPOINT)'
+    scannerMode: 'MSBuild'
+    projectKey: '$(APP_SONAR_PROJECT)'
+    extraProperties: |
+      sonar.cs.opencover.reportsPaths="${{ parameters.sourceRepoPath }}/TestResults/coverage/**.xml"
+      sonar.cs.vstest.reportsPaths="${{ parameters.sourceRepoPath }}/TestResults/*.trx"
+
+# NuGet Restore
+- task: DotNetCoreCLI@2
+  displayName: 'Restore NuGet from HCUS_NugetFeed'
+  inputs:
+    command: restore
+    projects: '${{ parameters.sourceRepoPath }}/**/$(APP_PROJECT_NAME).csproj'
+    includeNuGetOrg: true
+    arguments: '--configuration $(APP_BUILD_CONFIGURATION)'
+  enabled: true
+
+# DotNet Build
+- task: DotNetCoreCLI@2
+  displayName: 'Dotnet build'
+  inputs:
+    command: build
+    projects: '${{ parameters.sourceRepoPath }}/**/$(APP_PROJECT_NAME).csproj'
+    arguments: '--configuration $(APP_BUILD_CONFIGURATION) --no-restore'
+
+# Run SonarQube analysis
+- task: SonarQubeAnalyze@5
+  enabled: ${{ parameters.enableSonarCloudAnalyze }}
+  env: {BROWSERSLIST_IGNORE_OLD_DATA: true}
+
+# Publish SonarQube results
+- task: SonarQubePublish@5
+  enabled: ${{ parameters.enableSonarCloudAnalyze }}
+  inputs:
+    pollingTimeoutSec: '300'
+
+# DotNet Unit Tests
+- task: DotNetCoreCLI@2
+  displayName: 'Unit tests run'
+  inputs:
+    command: test
+    projects: '${{ parameters.sourceRepoPath }}/**/*Tests.csproj'
+    arguments: '--results-directory ${{ parameters.sourceRepoPath }}/testresults --logger "trx" /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:CoverletOutput=${{ parameters.sourceRepoPath }}/testresults/coverage/'
+    publishTestResults: false
+
+# Publish UnitTests results
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'VSTest'
+    testResultsFiles: '*.trx'
+    searchFolder: '${{ parameters.sourceRepoPath }}/testresults'
+
+# Publish dotnet binaries
+- task: DotNetCoreCLI@2
+  displayName: 'Dotnet publish'
+  enabled: ${{ parameters.dotnetPublish }}
+  inputs:
+    command: publish
+    projects: '${{ parameters.sourceRepoPath }}/**/$(APP_PROJECT_NAME).csproj'
+    arguments: '-c Release -o ${{ parameters.sourceRepoPath }}/app'
+    zipAfterPublish: false
+    modifyOutputPath: false
+
+# Replace MSSQL connection string value in the app configuration files
+- task: qetza.replacetokens.replacetokens-task.replacetokens@3
+  displayName: 'Inject Application and Environment Values'
+  inputs:
+    targetFiles: '${{ parameters.sourceRepoPath }}/app/*.json'
+    actionOnMissing: fail
+    keepToken: true
+
+# The following tasks archive a dotnetcore application and publish artifact.
+- task: ArchiveFiles@2
+  displayName: 'Archive files'
+  enabled: ${{ parameters.publishArtifact }}
+  inputs:
+    rootFolderOrFile: '${{ parameters.sourceRepoPath }}/app'
+    includeRootFolder: false
+    archiveFile: '${{ parameters.sourceRepoPath }}/appzip/project.zip'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Dotnet artifact publish'
+  enabled: ${{ parameters.publishArtifact }}
+  inputs:
+    PathtoPublish: '${{ parameters.sourceRepoPath }}/appzip'
+    ArtifactName: 'app-$(Build.BuildNumber)'
+    publishWebProjects: True
+    zipAfterPublish: True

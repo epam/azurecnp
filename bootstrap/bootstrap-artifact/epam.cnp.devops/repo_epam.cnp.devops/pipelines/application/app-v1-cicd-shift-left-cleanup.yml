@@ -1,0 +1,71 @@
+# The pipeline used for the final shift-left testing stage - dynamic environment deletion procedure.
+# It will delete entire environment with application inside. Pipeline created on the basis to be 
+# triggered automatically at the end of merge process right into the main branch. Depending on the
+# branching strategy that is used in current development flow main branches naming differs. For the
+# Gitflow it could be "develop" but for the TBD - "main". Pay attention that most of the templates
+# have parameters, some of them are mandatory!
+# To automatically trigger the pipeline, you may use next configuration:
+# trigger:
+#   branches:
+#     include:
+#     - develop
+#   paths:
+#     include:
+#     - src/*
+#     - Dockerfile
+
+
+stages:
+- stage: Delete_from_dynamic_Env
+  displayName: 'Delete from dynamic Env'
+  jobs:
+  - job: Check_dynamic_Env
+    displayName: 'Check dynamic Env'
+    workspace:
+      clean: all
+    steps:
+    - template: ../operations/tasks/get-branch-name.yml
+    - template: ../operations/tasks/init-helm-deployment.yml
+    - task: AzurePowerShell@5
+      displayName: Check Kubernetes namespace
+      name: Check_Kubernetes_namespace
+      inputs:
+        azureSubscription: '$(ENV_SERVICE_CONNECTION_NAME)'
+        ScriptType: 'InlineScript'
+        Inline: |
+          Write-Host "`n---- Get AKS credentials. ----`n"
+          az aks get-credentials --subscription $(ENV_AZURE_SUBSCRIPTION_ID) -g "$(ENV_AKS_RG)" `
+            -n "$(ENV_AKS_NAME)" -f $(Pipeline.Workspace)/.kube/config
+          if (kubectl get ns --kubeconfig $(Pipeline.Workspace)/.kube/config | grep "$(PIPE_BRANCH_NAME)")
+          { 
+            Write-host "Dynamic namespace $(PIPE_BRANCH_NAME) exist and will be deleted..."
+            Write-Host "##vso[task.setvariable variable=PIPE_NS_EXISTS;isOutput=true]Yes"
+          }
+          else 
+          {
+            Write-host "Dynamic namespace $(PIPE_BRANCH_NAME) does not exist. Nothing to do..."
+          }
+          exit 0
+        azurePowerShellVersion: 'LatestVersion'
+
+  - job: Delete_dynamic_Env
+    displayName: 'Delete dynamic Env'
+    dependsOn: Check_dynamic_Env
+    condition: eq(dependencies.Check_dynamic_Env.outputs['Check_Kubernetes_namespace.PIPE_NS_EXISTS'], 'Yes')
+    steps:
+    - template: ../operations/tasks/init-helm-deployment.yml
+    - template: ../operations/tasks/helm-uninstall.yml
+      parameters:
+        releaseName: '$(APP_NAME)-$(PIPE_BRANCH_NAME)'
+        PIPE_ENV_KUBERNETES_NAMESPACE: $(PIPE_BRANCH_NAME)
+    - template: ../operations/tasks/helm-uninstall.yml
+      parameters:
+        releaseName: '$(ENV_HELM_CHART_CERT)-$(PIPE_BRANCH_NAME)'
+        PIPE_ENV_KUBERNETES_NAMESPACE: $(PIPE_BRANCH_NAME)
+    - template: ../operations/tasks/helm-uninstall.yml
+      parameters:
+        releaseName: '$(ENV_HELM_CHART_INGR)-$(PIPE_BRANCH_NAME)'
+        PIPE_ENV_KUBERNETES_NAMESPACE: $(PIPE_BRANCH_NAME)
+    - pwsh: |
+        kubectl delete ns $(PIPE_BRANCH_NAME) --kubeconfig $(Pipeline.Workspace)/.kube/config
+      displayName: Delete Kubernetes namespace

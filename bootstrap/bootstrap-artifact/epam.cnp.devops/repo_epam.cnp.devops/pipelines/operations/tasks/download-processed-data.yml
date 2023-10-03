@@ -1,0 +1,28 @@
+# This pipeline could be used mostly for data publishing between stages to share data.
+# It need us to overcome Azure DevOps pipelines limitations.
+parameters:
+- name: FilePath
+  type: string
+  default: "$(Pipeline.Workspace)/data/result.json"
+- name: FileName
+  type: string
+  default: "result.json"
+- name: ArtifactName
+  type: string
+  default: "exported_data"
+
+
+steps:
+- download: current
+  artifact: ${{ parameters.ArtifactName }}
+  displayName: 'Download pipeline artifact ${{ parameters.ArtifactName }}'
+- pwsh: |
+    $JSONData = $(Get-Content "$(Pipeline.Workspace)/${{ parameters.ArtifactName }}/${{ parameters.FileName }}" | ConvertFrom-Json)
+    $JSONData.PSObject.Properties | ForEach-Object {
+      $KeyName = $_.Name
+      $Value = $_.Value
+      Write-Host "---- Setting up environment variable  $KeyName value $Value ----"
+      Write-Host "##vso[task.setvariable variable=$KeyName]$Value"
+    }
+  name: SetUpEnvVariables
+  displayName: 'Set up Environment Variables'

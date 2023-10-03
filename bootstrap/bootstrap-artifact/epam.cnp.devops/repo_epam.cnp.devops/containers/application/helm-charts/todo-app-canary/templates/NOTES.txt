@@ -1,0 +1,5 @@
+Deployed stable version: {{ .Values.image.stableTag }}
+Stable version external address: https://{{ .Values.dnsName }}{{ .Values.relativePath }}
+Deployed canary version: {{ .Values.image.stableTag }}
+Canary version external address: https://{{ .Values.dnsName }}{{ .Values.relativePath }}
+Direct canary version external address: https://{{ .Values.canaryDirectDnsName }}{{ .Values.relativePath }}

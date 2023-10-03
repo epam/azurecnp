@@ -1,0 +1,37 @@
+parameters:
+- name: rootDir
+  type: string
+  default: "$(System.DefaultWorkingDirectory)"
+
+steps:
+- pwsh: |
+    Write-Host "Application name to use: $(APP_NAME)"
+    Write-Host "Searching for csproj file in the application source code..."
+    $csprojFilePath = $(Get-ChildItem *.csproj -Exclude *.Tests.* -Recurse).fullname
+    Write-Host "Csproj file was found: $csprojFilePath"
+    $file = [xml](Get-Content "$csprojFilePath")
+    Write-Host "Detecting application version from csproj file..."
+    $appVersion = $file.Project.PropertyGroup.Version
+    if ( $appVersion -ne $null )
+    {
+      Write-Host "Application version: $appVersion"
+    }else{
+      throw "Could not detect application version."
+    }
+    Write-Host "Detecting the current Git branch name..."
+    $currentBranchName = $("$(Build.SourceBranch)" -replace 'refs/heads/')
+    Write-Host "Current branch name: $currentBranchName"
+    # Removing all symbols except letters and numbers from the branch name. Bracnh name string limit - 16.
+    $formattedBranchName = $("$currentBranchName" -replace "[^0-9,A-z]")[0..16] -join ""
+    Write-Host "Formatted branch name to use: $formattedBranchName"
+    Write-Host "Current build ID: $(Build.BuildId)"
+    $releaseArtifactName = "$(APP_NAME).$appVersion.$formattedBranchName.$(Build.BuildId)"
+
+    Write-Host "Set environment variable PIPE_RELEASE_ARTIFACTNAME to: $releaseArtifactName"
+    Write-Host "##vso[task.setvariable variable=PIPE_RELEASE_ARTIFACTNAME;]$releaseArtifactName"
+    Write-Host "##vso[task.setvariable variable=PIPE_RELEASE_ARTIFACTNAME;isOutput=true]$releaseArtifactName"
+    Write-Host "##vso[build.updatebuildnumber]$releaseArtifactName"
+  name: GenerateReleaseVersion
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  displayName: 'Generate release artifact name'
+  workingDirectory: "${{ parameters.rootDir }}"

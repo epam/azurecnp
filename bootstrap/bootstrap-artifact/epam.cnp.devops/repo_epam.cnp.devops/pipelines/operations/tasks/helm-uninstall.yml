@@ -1,0 +1,21 @@
+parameters:
+- name: releaseName
+  type: string
+  default: ''
+- name: PIPE_ENV_KUBERNETES_NAMESPACE
+  type: string
+  default: $(ENV_KUBERNETES_NAMESPACE)
+
+steps:
+- task: HelmDeploy@0
+  displayName: Uninstall ${{ parameters.releaseName }} charts
+  inputs:
+    connectionType: 'Azure Resource Manager'
+    azureSubscriptionEndpoint: '$(ENV_SERVICE_CONNECTION_NAME)'
+    azureResourceGroup: "$(ENV_AKS_RG)"
+    kubernetesCluster: "$(ENV_AKS_NAME)"
+    namespace: ${{ parameters.PIPE_ENV_KUBERNETES_NAMESPACE }}
+    command: uninstall
+    arguments: '${{ parameters.releaseName }} --timeout $(SYS_HELM_DEPLOY_TIMEOUT)'
+    force: true
+    waitForExecution: true

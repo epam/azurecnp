@@ -1,0 +1,20 @@
+parameters:
+- name: RepositoryID
+  type: string
+  default: $(Build.Repository.ID)
+
+steps:
+- powershell: |
+      # Script detects the branch name for the latest completed Pull request
+      Write-Host "Checking the latest completed pull request for the branch name: $pattern"
+      $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "user",$env:SYSTEM_ACCESSTOKEN)))
+      $headers = @{Authorization=("Basic {0}" -f $base64AuthInfo)}
+      $url = "$(System.CollectionUri)/$(System.TeamProject)/_apis/git/pullrequests?searchCriteria.status=completed&searchCriteria.repositoryId=${{ parameters.RepositoryID }}&api-version=7.0"
+      $prs = Invoke-RestMethod -Uri $url -Headers $headers -Method Get
+      $BranchName = "$($($($prs.value.sourceRefName | Select-Object -first 1) -split '/')[-1])"
+      Write-Host "##vso[task.setvariable variable=PIPE_BRANCH_NAME]$BranchName"
+      Write-Host "$BranchName"
+  displayName: 'Get branch bame'
+  name: 'Get_branch_name'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)

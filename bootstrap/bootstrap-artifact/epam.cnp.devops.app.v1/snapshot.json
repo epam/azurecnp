@@ -1,0 +1,486 @@
+{
+  "dashboards": [],
+  "pipelines": [
+    {
+      "yml_path": "/pipelines/01-infra-cd.yml",
+      "repo_id": "epam.cnp.todoapp",
+      "name": "01-infra-cd",
+      "path": "\\infrastructure"
+    },
+    {
+      "yml_path": "/pipelines/04-infra-appmonitoring-cd.yml",
+      "repo_id": "epam.cnp.todoapp",
+      "name": "04-infra-appmonitoring-cd",
+      "path": "\\infrastructure"
+    },
+    {
+      "yml_path": "/pipelines/02-infra-k8s-environment-cd.yml",
+      "repo_id": "epam.cnp.todoapp",
+      "name": "02-infra-k8s-environment-cd",
+      "path": "\\infrastructure"
+    },
+    {
+      "yml_path": "/pipelines/03-app-cicd-canary.yml",
+      "repo_id": "epam.cnp.todoapp",
+      "name": "03-app-cicd-canary",
+      "path": "\\application"
+    },
+    {
+      "yml_path": "pipelines/00-infra-prerequisites-cd.yml",
+      "repo_id": "epam.cnp.todoapp",
+      "name": "00-infra-prerequisites-cd",
+      "path": "\\infrastructure"
+    },
+    {
+      "yml_path": "/pipelines/05-app-cicd-shift-left.yml",
+      "repo_id": "epam.cnp.todoapp",
+      "name": "05-app-cicd-shift-left",
+      "path": "\\application"
+    },
+    {
+      "yml_path": "pipelines/06-app-cicd.yml",
+      "repo_id": "epam.cnp.todoapp",
+      "name": "06-app-cicd",
+      "path": "\\application"
+    },
+    {
+      "yml_path": "pipelines/07-app-cicd-tbd.yml",
+      "repo_id": "epam.cnp.todoapp",
+      "name": "07-app-cicd-tbd",
+      "path": "\\application"
+    },
+    {
+      "yml_path": "pipelines/08-app-cicd-shift-left-cleanup.yml",
+      "repo_id": "epam.cnp.todoapp",
+      "name": "08-app-cicd-shift-left-cleanup",
+      "path": "\\application"
+    }
+  ],
+  "environments": [
+    "opensource_dev_env_shared",
+    "opensource_qa_env_shared",
+    "opensource_prod_env_shared",
+    "opensource_shift_env_shared"
+  ],
+  "reposBuildPolicies": [],
+  "wikis": [],
+  "reposRaw": [],
+  "repositories": [
+    {
+      "name": "epam.cnp.todoapp",
+      "isDefaultRepo": false
+    }
+  ],
+  "var_groups": [
+    {
+      "description": null,
+      "name": "opensource.com.app.todoapp",
+      "variables": {
+        "APP_BUILD_CONFIGURATION": {
+          "value": "Release",
+          "is_secret": "false"
+        },
+        "APP_TRAFFIC_PERCENTAGE_CANARY": {
+          "value": "20",
+          "is_secret": "false"
+        },
+        "APP_DOCKER_IMAGE_STABLE_TAG": {
+          "value": "stable",
+          "is_secret": "false"
+        },
+        "APP_K8S_CPU_REQUESTS": {
+          "value": "100m",
+          "is_secret": "false"
+        },
+        "APP_REPLICA_COUNT": {
+          "value": "2",
+          "is_secret": "false"
+        },
+        "APP_NAME": {
+          "value": "todo-app",
+          "is_secret": "false"
+        },
+        "APP_K8S_CPU_LIMITS": {
+          "value": "150m",
+          "is_secret": "false"
+        },
+        "APP_K8S_MEMORY_REQUESTS": {
+          "value": "350Mi",
+          "is_secret": "false"
+        },
+        "APP_K8S_MEMORY_LIMITS": {
+          "value": "500Mi",
+          "is_secret": "false"
+        },
+        "APP_SONAR_PROJECT": {
+          "value": "Opensource-Sonar-Project-Name",
+          "is_secret": "false"
+        },
+        "APP_PROJECT_NAME": {
+          "value": "todo",
+          "is_secret": "false"
+        }
+      }
+    },
+    {
+      "description": "This is the variable group that consists of common variables in you company subscription.",
+      "name": "opensource.com.env.shared",
+      "variables": {
+        "ENV_TF_STATE_RESOURCE_GROUP_NAME": {
+          "value": "yourcompanyname-rg-noeu-d-demoappin01",
+          "is_secret": "false"
+        },
+        "ENV_TF_STATE_LOCATION": {
+          "value": "northeurope",
+          "is_secret": "false"
+        },
+        "ENV_APP_ALERTS_RECEIVERS_EMAIL": {
+          "value": "user@example.com",
+          "is_secret": "false"
+        },
+        "ENV_HELM_CHART_CERT": {
+          "value": "cert-manager-config",
+          "is_secret": "false"
+        },
+        "ENV_TF_STATE_FOLDER": {
+          "value": "demoapp-com-yourcompanyname-shared",
+          "is_secret": "false"
+        },
+        "ENV_TF_STATE_CONTAINER_NAME": {
+          "value": "terraform-state-files",
+          "is_secret": "false"
+        },
+        "ENV_AZURE_CLIENT_ID": {
+          "value": "00000000-1111-2222-3333-444444444444",
+          "is_secret": "false"
+        },
+        "ENV_TF_STATE_STORAGE_ACCOUNT_NAME": {
+          "value": "uniqueazurestorageaccountname",
+          "is_secret": "false"
+        },
+        "ENV_CERT_MANAGER_ISSUER_SERVER": {
+          "value": "https://acme-v02.api.letsencrypt.org/directory",
+          "is_secret": "false"
+        },
+        "ENV_AZURE_TENANT_ID": {
+          "value": "45600000-1111-2222-3333-444444444444",
+          "is_secret": "false"
+        },
+        "ENV_AZURE_SUBSCRIPTION_ID": {
+          "value": "12300000-1111-2222-3333-444444444444",
+          "is_secret": "false"
+        },
+        "ENV_AZURE_CLIENT_SECRET": {
+          "value": null,
+          "is_secret": "true"
+        },
+        "ENV_HELM_CHART_INGR": {
+          "value": "ingress-nginx",
+          "is_secret": "false"
+        },
+        "ENV_ACR_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)acr$(ENV_INFRA_LOCATION_SHORT)$(ENV_INFRA_TYPE)01",
+          "is_secret": "false"
+        },
+        "ENV_CERT_MANAGER_ISSUER_EMAIL": {
+          "value": "user@example.com",
+          "is_secret": "false"
+        },
+        "ENV_AZURE_ENVIRONMENT": {
+          "value": "public",
+          "is_secret": "false"
+        },
+        "ENV_SERVICE_CONNECTION_NAME": {
+          "value": "azure_subscription_service_connection_name",
+          "is_secret": "false"
+        },
+        "ENV_TF_STATE_SUBSCRIPTION_ID": {
+          "value": "12300000-1111-2222-3333-444444444444",
+          "is_secret": "false"
+        }
+      }
+    },
+    {
+      "description": "This is the variable group that consists of variables for dev environment in your Azure subscription.",
+      "name": "opensource.dev.env.shared",
+      "variables": {
+        "ENV_ACR_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)acr$(ENV_INFRA_LOCATION_SHORT)$(ENV_INFRA_TYPE)$(ENV_INFRA_NAME_PREFIX)01",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_TYPE": {
+          "value": "d",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_SO_NAME": {
+          "value": "yourcompanyname",
+          "is_secret": "false"
+        },
+        "ENV_APPINS_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-appins-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)-01",
+          "is_secret": "false"
+        },
+        "ENV_AKS_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-aks-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)",
+          "is_secret": "false"
+        },
+        "ENV_AKS_RG": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)compute-01",
+          "is_secret": "false"
+        },
+        "ENV_MONITOR_RG": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)monitor-01",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_LOCATION_SHORT": {
+          "value": "noeu",
+          "is_secret": "false"
+        },
+        "ENV_KUBERNETES_NAMESPACE": {
+          "value": "$(ENV_NAME)",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_LOCATION": {
+          "value": "northeurope",
+          "is_secret": "false"
+        },
+        "ENV_NAME": {
+          "value": "dev",
+          "is_secret": "false"
+        },
+        "ENV_TF_STATE_FOLDER": {
+          "value": "demoapp-dev-yourcompanyname-shared",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_NAME_PREFIX": {
+          "value": "infranameprefix",
+          "is_secret": "false"
+        },
+        "ENV_ACR_RG_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)storage-01",
+          "is_secret": "false"
+        }
+      }
+    },
+    {
+      "description": "This is the variable group that consists of variables for qa environment in your Azure subscription.",
+      "name": "opensource.qa.env.shared",
+      "variables": {
+        "ENV_ACR_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)acr$(ENV_INFRA_LOCATION_SHORT)$(ENV_INFRA_TYPE)$(ENV_INFRA_NAME_PREFIX)01",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_TYPE": {
+          "value": "d",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_SO_NAME": {
+          "value": "yourcompanyname",
+          "is_secret": "false"
+        },
+        "ENV_APPINS_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-appins-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)-01",
+          "is_secret": "false"
+        },
+        "ENV_AKS_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-aks-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)",
+          "is_secret": "false"
+        },
+        "ENV_AKS_RG": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)compute-01",
+          "is_secret": "false"
+        },
+        "ENV_MONITOR_RG": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)monitor-01",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_LOCATION_SHORT": {
+          "value": "noeu",
+          "is_secret": "false"
+        },
+        "ENV_KUBERNETES_NAMESPACE": {
+          "value": "$(ENV_NAME)",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_LOCATION": {
+          "value": "northeurope",
+          "is_secret": "false"
+        },
+        "ENV_NAME": {
+          "value": "qa",
+          "is_secret": "false"
+        },
+        "ENV_TF_STATE_FOLDER": {
+          "value": "demoapp-qa-yourcompanyname-shared",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_NAME_PREFIX": {
+          "value": "infranameprefix",
+          "is_secret": "false"
+        },
+        "ENV_ACR_RG_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)storage-01",
+          "is_secret": "false"
+        }
+      }
+    },
+    {
+      "description": "This is the variable group that consists of variables for prod environment in your Azure subscription.",
+      "name": "opensource.prod.env.shared",
+      "variables": {
+        "ENV_ACR_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)acr$(ENV_INFRA_LOCATION_SHORT)$(ENV_INFRA_TYPE)$(ENV_INFRA_NAME_PREFIX)01",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_TYPE": {
+          "value": "p",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_SO_NAME": {
+          "value": "yourcompanyname",
+          "is_secret": "false"
+        },
+        "ENV_APPINS_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-appins-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)-01",
+          "is_secret": "false"
+        },
+        "ENV_AKS_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-aks-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)",
+          "is_secret": "false"
+        },
+        "ENV_AKS_RG": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)compute-01",
+          "is_secret": "false"
+        },
+        "ENV_MONITOR_RG": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)monitor-01",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_LOCATION_SHORT": {
+          "value": "noeu",
+          "is_secret": "false"
+        },
+        "ENV_KUBERNETES_NAMESPACE": {
+          "value": "$(ENV_NAME)",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_LOCATION": {
+          "value": "northeurope",
+          "is_secret": "false"
+        },
+        "ENV_NAME": {
+          "value": "prod",
+          "is_secret": "false"
+        },
+        "ENV_TF_STATE_FOLDER": {
+          "value": "demoapp-prod-yourcompanyname-shared",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_NAME_PREFIX": {
+          "value": "infranameprefix",
+          "is_secret": "false"
+        },
+        "ENV_ACR_RG_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)storage-01",
+          "is_secret": "false"
+        }
+      }
+    },
+    {
+      "description": "This is the variable group that consists of variables for the dynamic environments in your Azure subscription for shift-left development process.",
+      "name": "opensource.shift.env.shared",
+      "variables": {
+        "ENV_ACR_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)acr$(ENV_INFRA_LOCATION_SHORT)$(ENV_INFRA_TYPE)$(ENV_INFRA_NAME_PREFIX)01",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_TYPE": {
+          "value": "d",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_SO_NAME": {
+          "value": "yourcompanyname",
+          "is_secret": "false"
+        },
+        "ENV_APPINS_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-appins-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)-01",
+          "is_secret": "false"
+        },
+        "ENV_AKS_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-aks-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)",
+          "is_secret": "false"
+        },
+        "ENV_AKS_RG": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)compute-01",
+          "is_secret": "false"
+        },
+        "ENV_MONITOR_RG": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)monitor-01",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_LOCATION_SHORT": {
+          "value": "noeu",
+          "is_secret": "false"
+        },
+        "ENV_KUBERNETES_NAMESPACE": {
+          "value": "$(Build.SourceBranchName)",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_LOCATION": {
+          "value": "northeurope",
+          "is_secret": "false"
+        },
+        "ENV_NAME": {
+          "value": "$(Build.SourceBranchName)",
+          "is_secret": "false"
+        },
+        "ENV_TF_STATE_FOLDER": {
+          "value": "demoapp-dev-yourcompanyname-shared",
+          "is_secret": "false"
+        },
+        "ENV_INFRA_NAME_PREFIX": {
+          "value": "infranameprefix",
+          "is_secret": "false"
+        },
+        "ENV_ACR_RG_NAME": {
+          "value": "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)storage-01",
+          "is_secret": "false"
+        }
+      }
+    },
+    {
+      "description": "",
+      "name": "opensource.com.sys.global",
+      "variables": {
+        "SYS_KUBECTL_VERSION": {
+          "value": "1.26.0",
+          "is_secret": "false"
+        },
+        "SYS_SONAR_ENDPOINT": {
+          "value": "sonarQube_endpoint_name",
+          "is_secret": "false"
+        },
+        "SYS_OPS_RW_PAT": {
+          "value": null,
+          "is_secret": "true"
+        },
+        "SYS_HELM_VERSION": {
+          "value": "3.10.0",
+          "is_secret": "false"
+        },
+        "SYS_HELM_DEPLOY_TIMEOUT": {
+          "value": "10m0s",
+          "is_secret": "false"
+        },
+        "SYS_PROJECT_CODE": {
+          "value": "cnp",
+          "is_secret": "false"
+        },
+        "SYS_CODE_READ_PAT": {
+          "value": null,
+          "is_secret": "true"
+        }
+      }
+    }
+  ]
+}

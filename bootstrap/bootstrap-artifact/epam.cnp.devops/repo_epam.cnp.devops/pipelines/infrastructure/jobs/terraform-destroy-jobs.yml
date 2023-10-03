@@ -1,0 +1,64 @@
+parameters:
+- name: environment
+  type: string
+- name: terraformVarsFile
+  type: string
+- name: infraSolutionFolder
+  type: string
+- name: terraformConfFileFormat
+  type: string
+  default: tfvars
+- name: terraformTarget
+  type: string
+  default: 'empty'
+
+jobs:
+- deployment: Destroy
+  displayName: 'Terraform destroy'
+  environment: ${{ replace(parameters.environment, '.', '_') }}
+  workspace:
+    clean: all
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - template: ../tasks/replace-tokens.yml
+          parameters:
+            infraSolutionFolder: ${{ parameters.infraSolutionFolder }}
+            workingDirectory: $(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}
+
+        - template: ../tasks/terraform-install-required-version-task.yml
+          parameters:
+            workingDirectory: "$(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}"
+
+        - pwsh: |
+            terraform --version
+            terraform init
+          name: Terraform_init
+          displayName: 'Terraform init'
+          workingDirectory: "$(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}"
+
+        - template: ../tasks/terraform-target-parser-task.yml
+          parameters:
+            terraformTarget: ${{ parameters.terraformTarget }}
+            infraSolutionFolder: ${{ parameters.infraSolutionFolder }}
+
+        - pwsh: |
+            $TargetArgs = ( '${{ parameters.terraformTarget }}' -eq 'empty' ) ? `
+            '' : ( "$(Target_arguments.PIPE_TERRAFORM_TARGET_STRING)" -eq '' ) ? `
+            '' : "$(Target_arguments.PIPE_TERRAFORM_TARGET_STRING)"
+
+            if ( $TargetArgs -ne "" ) {
+              Write-Host "Terraform target arguments found `"$TargetArgs`""
+              $command = "terraform destroy -var-file ${{ parameters.terraformVarsFile }} -var-file global.${{ parameters.terraformConfFileFormat }} -auto-approve $TargetArgs"
+              Write-host "Terraform cli command to be executed:"
+              $command
+              Invoke-Expression $command
+            } else {
+              terraform destroy -var-file ${{ parameters.terraformVarsFile }} `
+              -var-file global.${{ parameters.terraformConfFileFormat }} -auto-approve
+            }
+          name: Terraform_destroy
+          displayName: 'Terraform destroy'
+          workingDirectory: "$(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}"
+          condition: or(not(eq(variables['Target_arguments.PIPE_TERRAFORM_TARGET_STRING'], '')), in('${{ parameters.terraformTarget }}', '', 'empty'))

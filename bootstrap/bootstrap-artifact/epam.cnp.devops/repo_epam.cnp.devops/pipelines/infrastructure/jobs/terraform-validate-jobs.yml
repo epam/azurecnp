@@ -1,0 +1,35 @@
+parameters:
+- name: infraSolutionFolder
+  type: string
+  default: "."
+- name: terraformRepo
+  type: string
+  default: 'templates'
+- name: tfvariablesRepo
+  type: string
+  default: 'tfvariables'
+
+jobs:
+- job: terraformValidate
+  displayName: "Validate Terraform Code"
+  workspace:
+    clean: all
+  steps:
+  - template: ../../operations/tasks/clone-repositories.yml
+    parameters:
+      repositories:
+      - ${{ parameters.terraformRepo }}
+      - ${{ parameters.tfvariablesRepo }}
+
+  - template: ../tasks/replace-tokens.yml
+    parameters:
+      infraSolutionFolder: ${{ parameters.infraSolutionFolder }}
+      workingDirectory: $(Agent.BuildDirectory)/${{ parameters.terraformRepo }}/${{ parameters.infraSolutionFolder }}
+
+  - template: ../tasks/terraform-install-required-version-task.yml
+    parameters:
+      workingDirectory: $(Agent.BuildDirectory)/${{ parameters.terraformRepo }}/${{ parameters.infraSolutionFolder }}
+
+  - template: ../tasks/terraform-validate-task.yml
+    parameters:
+      workingDirectory: $(Agent.BuildDirectory)/${{ parameters.terraformRepo }}/${{ parameters.infraSolutionFolder }}

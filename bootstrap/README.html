@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h1>Azure DevOps project bootstrap</h1>
+
+<h2>Overview</h2>
+
+<p>Azure DevOps project bootstrap is a solution based on Powershell script that intended to create one or more Azure DevOps projects with the following predefined resources:</p>
+<ul>
+   <li>Security Group</li>
+   <li>Repositories</li>
+   <li>Pipelines</li>
+   <li>Environments</li>
+   <li>Variable groups</li>
+   <li>Branch policies</li>
+   <li>Wiki</li>
+   <li>Dashboards</li>
+ </ul>
+ <p>Please refer to bootstrapped project wiki for getting more details about the project.</p>
+
+<h2>Prerequisites</h2>
+<ol>
+   <li>Azure DevOps organization.</li>
+   <li>Personal Access Token (PAT) that has Full access to the organization.</li>
+   <li>Git must be available using PowerShell terminal.</li>
+</ol>
+
+<h2>Deployment</h2>
+<ol>
+   <li>Configure Azure DevOps Personal Access Token (PAT) with full access within your organization. Refer to <a href="https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?view=azure-devops&tabs=Windows">MS documentation</a> to create PAT.</li>
+   <li>Unblock downloaded  PowerShell files:
+   <div style="background-color:rgb(230, 230, 230);white-space:pre">Unblock-File .\bootstrap-module.psm1
+Unblock-File .\replace_string.psm1
+Unblock-File .\bootstrap.ps1</div>
+   </li>
+<li> If you need to replace content in the downloaded files to your custom values you should modify the configuration.yaml file as described following.
+</li>
+   <li>Set execution policy to allow script run if required:<br>
+      <div style="background-color:rgb(230, 230, 230);white-space:pre">Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope &lt;scope&gt;</div>
+   </li>
+   <li>Considering potential issues related to maximum length of git file name, run PowerSell as administrator and adjust the following option:
+      <div style="background-color:rgb(230, 230, 230);white-space:pre">git config --system core.longpaths true</div>
+   </li>
+   <li>Run bootstrap script:
+      <div style="background-color:rgb(230, 230, 230);white-space:pre">./bootstrap.ps1 -targetOrg "https://dev.azure.com/&lt;org_name&gt;"
+                     [-envApproveEnable]
+                     [-securityGroupName]
+                     [-envApproveTimeout]
+                     [-artifactPath]
+                     [-workflow]
+                     [-configFile]
+                     [-wikibranch]</div>
+      <p>Optional Parameters</p>
+      -envApproveEnable - boolean value, configure or not Azure DevOps security group as an environment approval group for the all environments. Default value: $false<br>
+      -securityGroupName - security group name to be created (used as environment approval security group if envApproveEnable equal $true). Default value: ""<br>
+      -envApproveTimeout - timeout for environment approval. Default value: "172800"<br>
+      -artifactPath - path to folder with snapshot data. Default value: "./bootstrap-artifact"<br>
+      -workflow -  determines default branch(s) name(s) for creating repositories and assigning policies, possible values are "trunk", "gitflow". "trunk" includes ["main"] branches, "gitflow" includes ["develop", "release/", "main"] branches. Default value: "trunk"<br>
+      -configFile - the path of the configuration file for content replacement. Default value is "./configuration.yaml"<br>
+      -wikibranch - wiki branch name where the wiki content will be stored. Default value: "main"<br>
+   </li>
+</li>
+<br>
+When you ran the script you will see the suggestion to enter the value of the Azure PAT token, you should enter the PAT value which was generated in the first step of this guide.
+</li>
+</ol>
+
+<li> Optional configuration: configure the content that needed to be replaced in the downloaded files in the configuration.yaml
+   By default only agent pool is configured to replace as "vmImage: ubuntu-latest".
+   It is possible to specify as much strings to replace as you need. To do it you should to add needed configuration in YAML format to the configuration.yaml
+   <div style="background-color:rgb(230, 230, 230);white-space:pre">You should specify:
+   project - The project name where content should be replaced
+   pattern - The pattern configuration in the replaceContent section which includes:
+             filePath - The path inside the project folder where needed files exist
+             fileMask - Files in the path where content should be replaced (wildcard is supported)
+             oldValue - The string which should be replaced. The regexp are fully supported.
+             newValue - The new string value.
+   
+   Example:
+   ### exampl.project.name01
+   - project: exampl.project.name01
+     replaceContent:
+     - pattern: 
+         filePath: ""
+         fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+         oldValue: "#{org_name}#"
+     - pattern: 
+         filePath: ""
+         fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+         oldValue: "#{project_name}#"
+     - pattern: 
+         filePath: ""
+         fileMask: ["*.yml"]
+         oldValue: "#{agent_pool}#"
+         newValue: "vmImage: ubuntu-latest"
+     - pattern: 
+         filePath: "example/path1"
+         fileMask: ["*.yml", "*.md"]
+         oldValue: "example string 1"
+         newValue: "New example string 1"
+     - pattern: 
+         filePath: "example/path2"
+         fileMask: ["*.tf", "*.json"]
+         oldValue: "example string 2"
+         newValue: "New example string 2"
+   
+   ### exampl.project.name02
+   - project: exampl.project.name02
+     replaceContent:
+     - pattern: 
+         filePath: ""
+         fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+         oldValue: "#{org_name}#"
+     - pattern: 
+         filePath: ""
+         fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+         oldValue: "#{project_name}#"
+     - pattern: 
+         filePath: ""
+         fileMask: ["*.yml"]
+         oldValue: "#{agent_pool}#" 
+         newValue: "vmImage: ubuntu-latest"
+     - pattern: 
+         filePath: "example/path1"
+         fileMask: ["*.yml", "*.md"]
+         oldValue: "example string 1"
+         newValue: "New example string 1"
+     - pattern: 
+         filePath: "example/path2"
+         fileMask: ["*.tf", "*.json"]
+         oldValue: "example string 2"
+         newValue: "New example string 2"</div>
+      </li>
+
+<p>NOTE: The script supports multiple runs in case of any issues during deployment as well as for reverting repositories and wikis to the initial state.</p>
+</body>
+</html>

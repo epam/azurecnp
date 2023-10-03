@@ -1,0 +1,18 @@
+{{- if or (eq .Values.issuerType "issuer") (eq .Values.issuerType "all") -}}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt-{{ .Values.namespace }}
+  namespace: {{ .Values.namespace }}
+spec:
+  acme:
+    server: {{ .Values.server }}
+    email: {{ .Values.email }}
+    privateKeySecretRef:
+      name: letsencrypt-{{ .Values.namespace }}-account-private-key
+    solvers:
+    - selector: {}
+      http01:
+        ingress:
+          class: nginx-{{ .Values.namespace }}
+{{- end }}

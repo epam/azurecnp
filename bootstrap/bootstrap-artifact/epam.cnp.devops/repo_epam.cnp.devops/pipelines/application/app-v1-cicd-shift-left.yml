@@ -1,0 +1,119 @@
+# The pipeline is used for the shift-left testing. That creates environment, deploy application and
+# test it dynamically. Pay attention that most of the templates have parameters, some of them are
+# mandatory! It could be triggered from the specific branch (feature or in our case from shift),
+# depending on current release management flow.
+# To automatically trigger the pipeline from shift branch, you may use next configuration:
+# trigger:
+#   branches:
+#     include:
+#     - shift/*
+#   paths:
+#     include:
+#     - src/*
+#     - Dockerfile
+
+parameters:
+- name: helmChartRepo
+  type: string
+  default: 'templates'
+- name: buildContextVG
+  type: string
+  default: 'company.shift.env.example'
+- name: environmentObjects
+  type: object
+  default:
+  - envName: 'shift'
+    VG: 'company.shift.env.example'
+- name: repositories
+  type: object
+  default:
+  - self
+  - templates
+- name: helmChartValuesFilePath
+  type: string
+  default: ''
+
+stages:
+  - stage: Build
+    displayName: 'App. Build and Test'
+    variables:
+    - group: ${{ parameters.buildContextVG }}
+    condition: and(succeeded(), contains(variables['Build.SourceBranch'], 'refs/heads/shift/'))
+    jobs:
+    - job: Build_Job
+      displayName: 'App. Build and Test'
+      workspace:
+        clean: all
+      steps:
+      - template: ../operations/tasks/clone-repositories.yml
+        parameters:
+          repositories:
+          - ${{ parameters.repositories }}
+      - template: tasks/dotnet-generate-release-version.yml
+        parameters:
+          rootDir: $(System.DefaultWorkingDirectory)/$(Build.Repository.Name)
+      - template: tasks/dotnetcore-build.yml
+        parameters:
+          sourceRepoPath: $(System.DefaultWorkingDirectory)/$(Build.Repository.Name)
+          enableSonarCloudAnalyze: false
+          dotnetPublish: true
+      - template: tasks/docker-build.yml
+        parameters: 
+          rootDir: $(System.DefaultWorkingDirectory)/$(Build.Repository.Name)
+      - template: tasks/extract-keys-data.yml
+      - template: ../operations/tasks/publish-processed-data.yml
+        parameters:
+          FileContent: '"PIPE_RELEASE_ARTIFACTNAME": "$(PIPE_RELEASE_ARTIFACTNAME)", "PIPE_COSMOS_DB_KEY": "$(PIPE_COSMOS_DB_KEY)", "PIPE_APPINS_INSTRUMENTATION_KEY": "$(PIPE_APPINS_INSTRUMENTATION_KEY)"'
+          ArtifactName: "Build"
+
+  - ${{ each environmentObject in parameters.environmentObjects }} :
+    - stage: Deploy_environment_infrastructure_${{ environmentObject.envName }}
+      displayName: Deploy ${{ environmentObject.envName }} environment infrastructure
+      dependsOn: Build
+      variables:
+      - group: ${{ environmentObject.VG }}
+      jobs:
+      - template: ../infrastructure/jobs/kubernetes-env-infrastructure-deployment.yml
+        parameters:
+          environment: ${{ environmentObject.envName }}
+          helmChartRepo: ${{ parameters.helmChartRepo }}
+          repositories: ${{ parameters.repositories }}
+          helmChartValuesFilePath: ${{ parameters.helmChartValuesFilePath }}/infrastructure/helm-charts
+          helmChartValuesFile: ${{ environmentObject.envName }}.values.yaml
+          
+    - stage: Deploy_on_${{ environmentObject.envName }}
+      displayName: 'Deploy on ${{ environmentObject.envName }}'
+      dependsOn: Deploy_environment_infrastructure_${{ environmentObject.envName }}
+      variables:
+      - group: ${{ environmentObject.VG }}
+      jobs:
+      - deployment: Deploy_on_${{ environmentObject.envName }}
+        displayName: 'Deploy on ${{ environmentObject.envName }}'
+        environment: ${{ environmentObject.envName }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+              - template: ../operations/tasks/clone-repositories.yml
+                parameters:
+                  repositories:
+                  - ${{ parameters.repositories }}
+              - template: ../operations/tasks/download-processed-data.yml
+                parameters:
+                  ArtifactName: "Build"
+              - template: ../operations/tasks/init-helm-deployment.yml
+              - template: ../operations/tasks/helm-deployment.yml
+                parameters:
+                  helmChart: $(APP_NAME)
+                  helmChartRepo: ${{ parameters.helmChartRepo }}
+                  helmChartPath: 'containers/application/helm-charts'
+                  helmChartValuesFilePath: ${{ parameters.helmChartValuesFilePath }}/application/helm-charts
+      - template: jobs/helm-tests.yaml
+        parameters:
+          jobName: 'HelmTest'
+          DependsOn: ["Deploy_on_${{ environmentObject.envName }}"]
+      - template: jobs/synthetic-test.yaml
+        parameters:
+          jobName: 'Deployment verification tests on ${{ environmentObject.envName }}'
+          command: 'curl -I https://$(SYS_PROJECT_CODE)-$(ENV_INFRA_NAME_PREFIX)-$(ENV_NAME).$(ENV_INFRA_LOCATION).cloudapp.azure.com'
+          DependsOn: ["HelmTest"]

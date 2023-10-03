@@ -1,0 +1,21 @@
+parameters:
+- name: jobName
+  type: string
+  default: 'Test'
+- name: DependsOn
+  type: object
+  default: []
+- name: command
+  type: string
+  default: 'Write-Host "---- Test passed. ----"'
+
+jobs:
+- job: ${{ replace(parameters.jobName, ' ', '') }}
+  displayName: ${{ parameters.jobName }}
+  dependsOn: ${{ parameters.DependsOn }}
+  steps:
+  - pwsh: |
+      Write-Host "This pipeline was developed for demonstration purposes only."
+      ${{ parameters.command }}
+    name: ${{ replace(parameters.jobName, ' ', '') }}
+    displayName: ${{ parameters.jobName }}

@@ -1,0 +1,34 @@
+parameters:
+- name: sourceACR
+  type: string
+- name: destinationACR
+  type: string
+- name: sourceImage
+  type: string
+- name: destinationImage
+  type: string
+  default: ''
+
+
+steps:
+- task: PowerShell@2
+  displayName: 'Pull and Push docker image'
+  inputs:
+    targetType: 'inline'
+    script: |
+      Write-Host '---- Log in to Azure ----'
+      az login --service-principal -u '$(ENV_AZURE_CLIENT_ID)' -p '$(ENV_AZURE_CLIENT_SECRET)' `
+        --tenant $(ENV_AZURE_TENANT_ID) | ConvertFrom-Json
+      if ($LastExitCode -eq 0){
+        Write-Host "---- Log in to Azure succeeded ----"
+      }else{
+        Write-Error "---- Check your credentials ----"
+      }
+
+      if ("${{ parameters.destinationImage }}" -eq ''){
+        Write-Host "---- Importing an image from ${{ parameters.sourceACR }}/${{ parameters.sourceImage }} to ${{ parameters.destinationACR }}/${{ parameters.sourceImage }} ----"
+        az acr import -n ${{ parameters.destinationACR }} --source ${{ parameters.sourceACR }}.azurecr.io/${{ parameters.sourceImage }} --force
+      }else{
+        Write-Host "---- Importing an image from ${{ parameters.sourceACR }}/${{ parameters.sourceImage }} to ${{ parameters.destinationACR }}/${{ parameters.destinationImage }} ----"
+        az acr import -n ${{ parameters.destinationACR }} --source ${{ parameters.sourceACR }}.azurecr.io/${{ parameters.sourceImage }} -t ${{ parameters.destinationImage }} --force
+      }

@@ -1,0 +1,32 @@
+### Deploys storage account for terraform state file and key vault
+
+# Resource repository where pipeline templates located.
+# This is mandatory for linking to templates in other repository.
+resources:
+  repositories:
+  - repository: templates
+    type: git
+    name: #{project_devops_name}#/#{repo_devops_name}#
+    endpoint: "tfs_cnpdevopsproject"
+    ref: 'refs/heads/develop'
+
+pool:
+  #{agent_pool}#
+
+trigger: none
+
+parameters:
+- name: destroy
+  displayName: Destroy
+  type: boolean
+  default: false
+
+variables:
+- group: opensource.com.env.shared
+
+stages:
+- template: pipelines/infrastructure/terraform-deployment-prerequisites-pipeline.yml@templates
+  parameters:
+    workingDirectory: pipelines/_configuration/_prerequsites
+    destroy: ${{ parameters.destroy }}
+    azDebug: ' '

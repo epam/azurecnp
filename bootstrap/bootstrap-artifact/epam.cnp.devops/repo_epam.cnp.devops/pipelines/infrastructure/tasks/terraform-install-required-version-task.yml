@@ -1,0 +1,25 @@
+parameters:
+- name: workingDirectory
+  type: string
+  default: "."
+
+steps:
+- pwsh: |
+    $ErrorActionPreference="Stop"
+    # Set semantic version Regular Expression in a variable
+    $SEMVER_REGEX="(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)`
+      (\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?"
+    
+    ForEach-Object { Get-Content -Path *.tf }| Select-String -Pattern " required_version" > version_list.txt
+    $TF_VERSION= ForEach-Object { Get-Content -Path version_list.txt }| Select-String -Pattern $SEMVER_REGEX |% `
+      { $_.Matches } | % { $_.Value } | Sort-Object -Descending | Select-Object -First 1
+
+    Write-host "Extracted version: $TF_VERSION" 
+    Write-host "##vso[task.setvariable variable=tfVersion;isOutput=true]$TF_VERSION"
+  name: extractVersion
+  displayName: Extract required Terraform version
+  workingDirectory: ${{ parameters.workingDirectory }}  #TerraformInstaller task: https://marketplace.visualstudio.com/items?itemName=ms-devlabs.custom-terraform-tasks
+- task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
+  displayName: Install Terraform required version
+  inputs:
+    terraformVersion: $(extractVersion.tfVersion)
