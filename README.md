@@ -218,10 +218,7 @@ The pipeline may fail during Terraform apply step throwing multiple errors:
 ```
 Resolution: re run all jobs within the stage.
 
-License
+# License
 
 Copyright (C) 2023 EPAM Systems Inc.
-
- 
-
-The LICENSE file in the root of this project applies unless otherwise indicated.
+The LICENSE file in the root of this project applies unless otherwise indicated. 
