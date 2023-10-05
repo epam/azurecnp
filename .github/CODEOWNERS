@@ -1,2 +1,6 @@
 # Code owners in Azure Landing Zone public repository
-# e-mail: SpecialEPMC-ACMAzure-Operations@epam.com
+# The '*' symbol means global owner
+# e-mail example: 
+# *     SpecialEPMC-ACMAzure-Operations@epam.com
+# GitHub user example: 
+# *     @SpecialEPMC-ACMAzure-Operations
