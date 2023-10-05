@@ -8,6 +8,13 @@ The `Application` represents a basic reference model for infrastructure manageme
 Terraform used as IaC tool. Application and infrastructure components inside AKS cluster are managed by Helm. It allows us to control full application and infrastructure life cycle starting from creation phase, its' update and deletion phases.
 
 # Importing demo app to Azure DevOps organization
+**Prerequisites**
+
+- Azure DevOps (ADO) organization;
+- PowerShell must be installed on local machine.
+
+**Importing**
+
 For importing demo app to your organization:
 1. Download bootstrap folder from the repository.
 2. Configure Azure DevOps Personal Access Token (PAT) with full access within your organization. Refer to [MS documentation](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?view=azure-devops&tabs=Windows) to create PAT.
@@ -17,7 +24,7 @@ Unblock-File .\bootstrap-module.psm1
 Unblock-File .\replace_string.psm1
 Unblock-File .\bootstrap.ps1
 ```
-4. If you need to replace content in the downloaded files to your custom values could be done some code manipulations like:
+4. If you want to rename projects and/or repositories to your custom names (for organization naming proposals or other goals). Here could be done some code manipulations **before** bootstrapping, like:
 - Renaming projects. For this need to rename both folders in the bootstrap-artifact folder and update configuration.yaml file with new projects' names (Update replace pattern too).
 ```
 -- bootstrap
@@ -90,7 +97,6 @@ After bootstraping to the organization it is need to do initial configuration.
 
 **Prerequisites**
 
-- Azure DevOps (ADO) organization;
 - Azure Cloud subscription;
 - Azure Cloud service principal (with at least "Сontributor" and "User Access Administrator" or "Owner" rights on the subscription level) [Create an Azure AD app and service principal in the portal - Microsoft Entra | Microsoft Learn ](https://learn.microsoft.com/en-us/cli/azure/create-an-azure-service-principal-azure-cli).
 
@@ -116,9 +122,18 @@ You do not need to set up additional components in case you plan to use [microso
 
 #Deployment steps
 
-Several essential things must be done before get started:
+Deployment steps are applicable only for the Application project.
+
+Abbreviations used:
+```
+VG - is a pipeline Variable Groups.
+ADO - is an Azure DevOps organization.
+SP - is a Service Principal.
+PAT - is a Personal Access Token.
+```
+Several essential things must be done before getting started:
 <ol>
-<li>Create ADO PAT tokens and insert secret data into variable groups (variables in <strong> .sys.global </strong>VG):
+<li>Create ADO PAT tokens and insert secret data into variable groups (variables in <strong> *.sys.global </strong>VG):
 <table>
 <tbody>
 <tr>
@@ -143,7 +158,7 @@ Several essential things must be done before get started:
 <li>Create <a href="https://learn.microsoft.com/en-us/azure/devops/pipelines/library/service-endpoints?view=azure-devops&tabs=yaml#azure-resource-manager-service-connection">Azure Resource Manager service connection</a> to your Azure Cloud subscription.</li>
 <li>Update at least these variable groups (VG) and variables:<br><br>
 
-Update common environment variables (variables in <strong>*.com.env.* </strong>VG)<br>
+Update common environment variables (variables in <strong> \*.com.env.* </strong>VG)<br>
 ENV_APP_ALERTS_RECEIVERS_EMAIL - update with your own email addresses;<br>
 ENV_CERT_MANAGER_ISSUER_EMAIL - update with your own email addresses;<br>
 ENV_AZURE_CLIENT_ID – update with your Azure Cloud SP client ID;<br>
@@ -155,7 +170,7 @@ ENV_TF_STATE_STORAGE_ACCOUNT_NAME – update with desired Azure Cloud storage ac
 ENV_TF_STATE_SUBSCRIPTION_ID – update with your Azure Cloud subscription ID;<br>
 ENV_TF_STATE_FOLDER – optionally to change.<br>
 
-Update environment specific variables (variables in <strong>*.dev.env.*, *.qa.env.* </strong>… VGs):<br>
+Update environment specific variables (variables in <strong>\*.dev.env.\*, \*.qa.env.\* </strong>… VGs):<br>
 ENV_INFRA_NAME_PREFIX – change value to some unique string (use letters and numbers);<br>
 ENV_INFRA_SO_NAME – optionally to change;<br>
 ENV_TF_STATE_FOLDER – optionally to change.
@@ -167,6 +182,14 @@ At the moment pipelines preconfigure to use like source <strong>main</strong> br
 </ol>
 
 At the end, you are able to deploy infrastructure and application components using "application project" pipelines.
+- Before starting, it is recommended to check out some information about this App and pipelines functionalities by navigating to the Core project and reviewing at least next pages (wiki paths): 
+```
+In "Demonstration concepts\epam.cnp.devops.app.v1":
+-- "Infrastructure delivery model",  
+-- "Application delivery model", 
+-- "Project structure\Pipelines".
+```
+- To start deployment process in Application project, run pipelines in their order. 
 
 **Optional steps to configure company's naming convention**
 1. Update VG names according to your naming convention.

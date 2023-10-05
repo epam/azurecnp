@@ -1,22 +1,22 @@
 {
-  "dashboards": [],
   "pipelines": [],
-  "environments": [],
-  "reposBuildPolicies": [],
-  "wikis": [
-    {
-      "type": "codeWiki",
-      "wikiRepoName": "epam.cnp.wiki",
-      "name": "Cloud Native Pipelines",
-      "mappedPath": "/"
-    }
-  ],
-  "reposRaw": [],
   "repositories": [
     {
       "name": "epam.cnp.devops",
       "isDefaultRepo": true
     }
   ],
+  "environments": [],
+  "wikis": [
+    {
+      "wikiRepoName": "epam.cnp.wiki",
+      "name": "Cloud Native Pipelines",
+      "mappedPath": "/",
+      "type": "codeWiki"
+    }
+  ],
+  "dashboards": [],
+  "reposRaw": [],
+  "reposBuildPolicies": [],
   "var_groups": []
 }
