@@ -1,11 +1,13 @@
-# Cloud Native Pipeline Demo application
-The `Cloud Native Pipelines` (CNP) accelerator is a solution purposed to speed up delivery process establishment from a DevOps perspective. The solution represents a core project which aggregates a scope of typical modules for CI/CD pipelines, sets of infrastructure modules, and documentation to assist in understanding and establishing the processes. It is built in a modular way and provides not only outgoing functionality but also could be extended by custom modules for the different needs of the delivery teams.
+# Cloud Native Pipeline(CNP) Description
+The **CNP accelerator** is an innovative solution that empowers you to effortlessly establish and oversee delivery processes with a DevOps approach. The solution consists of standard modules for CI/CD pipelines, infrastructure modules, and documentation. It also allows you to customize and integrate your own modules to meet your specific delivery needs.
 
-Here you can find bootstrap artifact which will bring to your Azure DevOps organization a prepared solution with two project (Core - `DevOps`, and `Application`).
+This bootstrap artifact will create a solution with two projects (Core - *DevOps*, and *Application*) in your Azure DevOps organization.
 
-The `Application` represents a basic reference model for infrastructure management and application CI/CD processes in case of using Azure Kubernetes Services (AKS) in combination with Azure Cosmos DB. It relies on Azure DevOps services as an orchestrator for CI/CD and infrastructure deployment and configuration.
+The **Application project** is a reference project for microservice development using Azure Kubernetes Services (AKS) and Azure Cosmos DB. It uses Azure DevOps services to orchestrate CI/CD and infrastructure deployment and configuration.
 
-Terraform used as IaC tool. Application and infrastructure components inside AKS cluster are managed by Helm. It allows us to control full application and infrastructure life cycle starting from creation phase, its' update and deletion phases.
+The **DevOps project** is a reference project for pipelines and IaC development. Act as a platform and stores a collection of reusable infrastructure and pipeline templates, specifically designed to facilitate the work of development teams.
+
+Our solution leverages Terraform as the Infrastructure as Code (IaC) tool and Helm as the powerful tool for managing and orchestrating the application and infrastructure components within the AKS cluster. This enables you to control the full life cycle of the application and infrastructure, from creation to update and deletion.
 
 # Importing demo app to Azure DevOps organization
 **Prerequisites**
