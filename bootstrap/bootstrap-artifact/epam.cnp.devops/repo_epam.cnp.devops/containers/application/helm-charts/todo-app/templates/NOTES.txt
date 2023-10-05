@@ -1,0 +1,2 @@
+Deployed version: {{ .Values.image.tag }}
+External Address: https://{{ .Values.dnsName }}{{ .Values.relativePath }}

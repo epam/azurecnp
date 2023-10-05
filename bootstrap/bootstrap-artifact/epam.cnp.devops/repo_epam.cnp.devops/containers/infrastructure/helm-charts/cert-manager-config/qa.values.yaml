@@ -1,0 +1,7 @@
+issuerType: issuer
+
+namespace: #{ENV_KUBERNETES_NAMESPACE}#
+
+server: #{ENV_CERT_MANAGER_ISSUER_SERVER}#
+
+email: #{ENV_CERT_MANAGER_ISSUER_EMAIL}#

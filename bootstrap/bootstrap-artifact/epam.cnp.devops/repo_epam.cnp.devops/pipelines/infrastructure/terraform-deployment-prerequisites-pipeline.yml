@@ -1,0 +1,168 @@
+####################################################################################################
+# INPUT PARAMETERS:
+# - workingDirectory      example: $(System.DefaultWorkingDirectory)/000_prerequisites
+# - destroy      example: true|false default: false
+# - azDebug (optional)    example: ''|' --debug'
+# - DependsOn (optional)  example: ''|'<stage_name>' (only for delete stage)
+#
+#  Main pipeline must contains variables:
+#   - ENV_SERVICE_CONNECTION_NAME
+#   - ENV_TF_STATE_LOCATION
+#   - ENV_TF_STATE_RESOURCE_GROUP_NAME
+#   - ENV_TF_STATE_STORAGE_ACCOUNT_NAME
+#   - ENV_TF_STATE_CONTAINER_NAME
+#   - ENV_COMMON_KV_NAME (may be ignored)
+#   - ENV_AZURE_TENANT_ID
+# Deployment name pattern: deployment-<TYPE_OF_RESOURCE(rg|sa|kv)>-<RESOURCE_GROUP_NAME>
+# Create  - based on ARM templates + variable group
+# Destroy - based on variable group
+####################################################################################################
+
+parameters:
+- name: workingDirectory
+  displayName: Full path to work folder
+  type: string
+  default: '.'
+- name: destroy
+  type: boolean
+  default: false
+- name: azDebug
+  displayName: Debug flag for az cli
+  type: string
+  default: ' '
+  values:
+  - ' '
+  - ' --debug'
+- name: DependsOn
+  type: object
+  default: []
+
+stages:
+- stage: 'Terraform_prerequisites'
+  displayName: 'Terraform prerequisites'
+  dependsOn: ${{ parameters.DependsOn }}
+  condition: and(not(failed()), not(canceled()))
+
+  jobs:
+  - job: 'Terraform_prerequisites_create'
+    displayName: 'Terraform prerequisites: create'
+    condition: eq('${{ parameters.destroy }}','false')
+    workspace:
+      clean: all
+    steps:
+
+    - template: ../infrastructure/tasks/replace-tokens.yml
+      parameters:
+        infraSolutionFolder: '${{ parameters.workingDirectory }}'
+        workingDirectory: '${{ parameters.workingDirectory }}'
+
+    - task: AzureCLI@2
+      displayName: 'Deploy ARM templates'
+      inputs:
+        azureSubscription: '$(ENV_SERVICE_CONNECTION_NAME)'
+        workingDirectory: '${{ parameters.workingDirectory }}'
+        scriptType: 'pscore'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          if ('${{ parameters.azDebug }}' -contains '--debug') {
+            write-host ('Script running from:'+(Get-Location))
+          }
+          $resPrefix = 'rg'
+          Write-Host ("Processing $resPrefix (resource group) resource, checking files...") -ForegroundColor green
+          Get-ChildItem -Path . -Name -Filter $resPrefix'_*.json'
+          if ((Test-Path $resPrefix'_template.json', $resPrefix'_parameters.json') -notcontains $false){
+              Write-Host ("Deploying resource group '$(ENV_TF_STATE_RESOURCE_GROUP_NAME)' for IAC resources.")
+              try {
+                  az deployment sub create `
+                  --name "deployment-$resPrefix-$(ENV_TF_STATE_RESOURCE_GROUP_NAME)" `
+                  --location "$(ENV_TF_STATE_LOCATION)" `
+                  --template-file $resPrefix'_template.json' `
+                  --parameters $resPrefix'_parameters.json' `
+                  --parameters `
+                  rgName="$(ENV_TF_STATE_RESOURCE_GROUP_NAME)" ${{ parameters.azDebug }}
+              } Catch { Write-Host ("`n--- Failed to run az cli ---`n" ) -ForegroundColor Red; break }
+          } else { Write-Host 'All ARM template files not found, skiped'; break }
+
+          $resPrefix = 'sa'
+          Write-Host ("Processing $resPrefix (storage account) resource, checking files...") -ForegroundColor green
+          Get-ChildItem -Path . -Name -Filter $resPrefix'_*.json'
+          if ((Test-Path $resPrefix'_template.json', $resPrefix'_parameters.json') -notcontains $false){
+              Write-Host ("Deploying storage account $(ENV_TF_STATE_STORAGE_ACCOUNT_NAME) `
+              & container in it to store statefiles.")
+              try {
+                  az deployment group create `
+                  --name "deployment-$resPrefix-$(ENV_TF_STATE_RESOURCE_GROUP_NAME)" `
+                  --resource-group "$(ENV_TF_STATE_RESOURCE_GROUP_NAME)" `
+                  --template-file sa_template.json `
+                  --parameters sa_parameters.json `
+                  --parameters `
+                  saName="$(ENV_TF_STATE_STORAGE_ACCOUNT_NAME)" `
+                  location="$(ENV_TF_STATE_LOCATION)" `
+                  containerName="$(ENV_TF_STATE_CONTAINER_NAME)" ${{ parameters.azDebug }}
+              } Catch { Write-Host ("`n--- Failed to run az cli ---`n" ) -ForegroundColor Red; break }
+          } else { Write-Host ('All ARM template files not found, skiped') }
+
+          $resPrefix = 'kv'
+          Write-Host ("Processing $resPrefix (key vault) resource, checking files...") -ForegroundColor green
+          Get-ChildItem -Path . -Name -Filter $resPrefix'_*.json'
+          if ((Test-Path $resPrefix'_template.json', $resPrefix'_parameters.json') -notcontains $false){
+              Write-Host ("Deploying key vault $(ENV_COMMON_KV_NAME) to store secret data.")
+              try {
+                  az deployment group create `
+                  --name "deployment-$resPrefix-$(ENV_TF_STATE_RESOURCE_GROUP_NAME)" `
+                  --resource-group "$(ENV_TF_STATE_RESOURCE_GROUP_NAME)" `
+                  --template-file 'kv_template.json' `
+                  --parameters 'kv_parameters.json' `
+                  --parameters `
+                  kvName="$(ENV_COMMON_KV_NAME)" `
+                  location="$(ENV_TF_STATE_LOCATION)" `
+                  tenantId="$(ENV_AZURE_TENANT_ID)" ${{ parameters.azDebug }}
+              } Catch { Write-Host ("`n--- Failed to run az cli ---`n" ) -ForegroundColor Red; break }
+          } else { Write-Host ('All ARM template files not found, skiped') }
+
+  - job: 'Terraform_prerequisites_delete'
+    displayName: 'Terraform prerequisites: delete'
+    condition: eq('${{ parameters.destroy }}','true')
+    steps:
+    - checkout: none
+    - task: AzureCLI@2
+      displayName: Check and delete deployed templates and resources
+      inputs:
+        azureSubscription: '$(ENV_SERVICE_CONNECTION_NAME)'
+        scriptType: 'pscore'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          # Remove group deployments
+          Write-Host ("`n--- List deployments at resource group... ---")
+          if ((az group exists -n '$(ENV_TF_STATE_RESOURCE_GROUP_NAME)') -eq 'true'){
+            az deployment group list -g $(ENV_TF_STATE_RESOURCE_GROUP_NAME) --query [].name -o tsv
+            Write-Host ("`n--- Remove deployments at resource group... ---")
+            az deployment group delete -g $(ENV_TF_STATE_RESOURCE_GROUP_NAME) `
+              -n "deployment-sa-$(ENV_TF_STATE_RESOURCE_GROUP_NAME)" --no-wait ${{ parameters.azDebug }}
+            az deployment group delete -g $(ENV_TF_STATE_RESOURCE_GROUP_NAME) `
+              -n "deployment-kv-$(ENV_TF_STATE_RESOURCE_GROUP_NAME)" --no-wait ${{ parameters.azDebug }}
+          } else { Write-Host('Not found resource group')}
+          # Remove subscription deployments
+          Write-Host ("`n--- List deployments at subscription scope... ---")
+          if ((az deployment sub list --query [].name -o tsv) -ne $null){
+          az deployment sub list --query [].name -o tsv
+          Write-Host ("`n--- Remove deployments at subscription scope... ---")
+          az deployment sub delete -n "deployment-rg-$(ENV_TF_STATE_RESOURCE_GROUP_NAME)" --no-wait ${{ parameters.azDebug }}
+          } else { Write-Host('Not found deployments in subscription')}
+          # Remove key vault
+          if (($env:ENV_COMMON_KV_NAME -ne $null) -and ((az keyvault list -g '$(ENV_TF_STATE_RESOURCE_GROUP_NAME)' `
+          --query [].name -o tsv) -contains '$(ENV_COMMON_KV_NAME)')){
+            Write-Host ("`n--- Removing keyvault '$(ENV_COMMON_KV_NAME)'...---")
+            az keyvault delete -n '$(ENV_COMMON_KV_NAME)'
+            az keyvault purge -n '$(ENV_COMMON_KV_NAME)'
+          } else {write-host("`n--- Keyvault " + $env:ENV_COMMON_KV_NAME + " not found---")}
+          # Remove resource group
+          if ((az group exists -n '$(ENV_TF_STATE_RESOURCE_GROUP_NAME)') -eq 'true'){
+            Write-Host ("`n--- Removing resource group '$(ENV_TF_STATE_RESOURCE_GROUP_NAME)'...---")
+            az group delete -n '$(ENV_TF_STATE_RESOURCE_GROUP_NAME)' --yes
+          } else {write-host("`n--- resource group '$(ENV_TF_STATE_RESOURCE_GROUP_NAME)' not found---")}
+
+# To purge a deleted key vault, the user needs RBAC permission to the
+# Microsoft.KeyVault/locations/deletedVaults/purge/action operation. To list a deleted key vault, the user
+# needs RBAC permission to the Microsoft.KeyVault/deletedVaults/read operation.By default only
+# a subscription administrator has these permissions.

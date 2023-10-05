@@ -1,0 +1,2 @@
+image:
+  tag: "#{APP_DOCKER_IMAGE_STABLE_TAG}#"

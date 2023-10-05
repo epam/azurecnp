@@ -1,0 +1,112 @@
+####################################################################################################
+# INPUT PARAMETERS:
+# - infraSolutionFolder:      Mandatory. The path to the Terraform module. Example value: 'modules/005_rg'
+# - configurationPath:        Mandatory. The path to the Terraform configuration files. Example value: 'configuration/005_rg'
+# - destroy:                  Optional. Destroy or not resources. Example value: 'false'
+# - envList:                  Mandatory. The list of environments to deploy. Example value:  envList:
+#                                                                                             - company.dev.env.test
+#                                                                                             - company.qa.env.test
+# - refreshOnly:              Optional. Just plan to update Terraform state and root module during apply step.
+# Example value: 'false'
+# - terraformConfFileFormat:  Optional. Terraform configuration file format. Allowed values are 'tfvars' and 'tfvars.json'
+# - DependsOn:                Optional. The stage runs after specified stage name.
+# Example value: '[Destroy__solutions_aks_epam_epmcacm21_env_aks]'
+# - condition:                Optional. Pipeline stage condition. Could be used to restrict\allow execution from specific branches.
+# Example value: 'or(eq(variables['Build.SourceBranch'], 'refs/heads/develop'), contains(variables['Build.SourceBranch'], 'refs/heads/feature/'))'
+# - ManualValidation          Optional. Allows to implement the approval of the Terraform Plan validation before running Terraform Apply.
+# The default value: 'false'. Example value: 'true'
+# - terraformTarget           Optional. Allows to target resource planning/applying and destroying. 
+# The default value is 'empty'. Example value:
+# path_to_module1/resource1.address,resource2.address;path_to_module2/resource1.address["for_each_index"],resource2.address[count_index]
+####################################################################################################
+
+
+parameters:
+- name: infraSolutionFolder
+  type: string
+- name: configurationPath
+  type: string
+- name: destroy
+  type: boolean
+  default: false
+- name: ManualValidation
+  type: boolean
+  default: false
+- name: envList
+  type: object
+  default: {}
+- name: refreshOnly
+  type: boolean
+  default: false
+- name: terraformConfFileFormat
+  type: string
+  default: tfvars
+- name: DependsOn
+  type: object
+  default: []
+- name: condition
+  type: string
+  default: contains(variables['Build.SourceBranch'], 'refs/heads/')
+- name: terraformTarget
+  type: string
+  default: 'empty'
+  
+# Create Terraform Artifact
+stages:
+- stage: Artifact_${{ replace(replace(parameters.infraSolutionFolder, '/', '_'), '.', '_') }}
+  condition: and(not(failed()), ${{ parameters.condition }})
+  displayName: Validate & publish code ${{ parameters.infraSolutionFolder }}
+  dependsOn: ${{ parameters.DependsOn }}
+  jobs:
+  - template: ../infrastructure/jobs/terraform-validate-jobs.yml
+    parameters:
+      infraSolutionFolder: ${{ parameters.infraSolutionFolder }}
+
+  - template: ../infrastructure/jobs/terraform-artifact-jobs.yml
+    parameters:
+      infraSolutionFolder: ${{ parameters.infraSolutionFolder }}
+      configurationPath: ${{ parameters.configurationPath }}
+
+# Create loop for Environments list
+- ${{ each environment in parameters.envList }}:
+
+  # Run Terraform Deploy stage
+  - stage: Deploy_${{ replace(replace(parameters.infraSolutionFolder, '/', '_'), '.', '_') }}_${{ replace(environment, '.', '_') }}
+    displayName: Deploy ${{ replace(parameters.infraSolutionFolder, '_modules/', ' ') }} for ${{ environment }}
+    dependsOn: Artifact_${{ replace(replace(parameters.infraSolutionFolder, '/', '_'), '.', '_') }}
+    condition: >
+      and(not(failed()), ne('${{ parameters.destroy }}', true),
+        or(contains(dependencies.Artifact_${{ replace(replace(parameters.infraSolutionFolder, '/', '_'), '.', '_') }}.outputs['publishArtifact.extractChanges.changedEnvs'], '${{ environment }}'),
+           eq(dependencies.Artifact_${{ replace(replace(parameters.infraSolutionFolder, '/', '_'), '.', '_') }}.outputs['publishArtifact.extractChanges.runAll'], true),
+           eq('${{ parameters.refreshOnly }}', true)
+        )
+      )
+    variables:
+    - group: ${{ environment }}
+    jobs:
+    # Call Terraform Deploy jobs
+    - template: ../infrastructure/jobs/terraform-deploy-jobs.yml
+      parameters:
+        environment: ${{ replace(environment, '.', '_') }}
+        infraSolutionFolder: ${{ parameters.infraSolutionFolder }}
+        terraformVarsFile: ${{ environment }}.${{ parameters.terraformConfFileFormat }}
+        terraformConfFileFormat: ${{ parameters.terraformConfFileFormat }}
+        refreshOnly: ${{ parameters.refreshOnly }}
+        ManualValidation: ${{ parameters.ManualValidation }}
+        terraformTarget: ${{ parameters.terraformTarget }}
+
+  # Run Terraform Destroy stage
+  - stage: Destroy_${{ replace(replace(parameters.infraSolutionFolder, '/', '_'), '.', '_') }}_${{ replace(environment, '.', '_') }}
+    displayName: Destroy ${{ replace(parameters.infraSolutionFolder, '_modules/', ' ') }} for ${{ environment }}
+    condition: and(not(failed()), eq('${{ parameters.destroy }}', true), ${{ parameters.condition }})
+    dependsOn: Deploy_${{ replace(replace(parameters.infraSolutionFolder, '/', '_'), '.', '_') }}_${{ replace(environment, '.', '_') }}
+    variables:
+    - group: ${{ environment }}
+    jobs:
+    # Call Terraform Destroy jobs
+    - template: ../infrastructure/jobs/terraform-destroy-jobs.yml
+      parameters:
+        environment: ${{ replace(environment, '.', '_') }}
+        infraSolutionFolder: ${{ parameters.infraSolutionFolder }}
+        terraformVarsFile: ${{ environment }}.${{ parameters.terraformConfFileFormat }}
+        terraformTarget: ${{ parameters.terraformTarget }}

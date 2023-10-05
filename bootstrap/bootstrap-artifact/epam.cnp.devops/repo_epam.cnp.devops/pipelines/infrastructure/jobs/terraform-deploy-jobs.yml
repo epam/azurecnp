@@ -1,0 +1,177 @@
+parameters:
+- name: environment
+  type: string
+- name: terraformVarsFile
+  type: string
+- name: infraSolutionFolder
+  type: string
+- name: refreshOnly
+  type: boolean
+- name: terraformConfFileFormat
+  type: string
+  default: tfvars
+- name: ManualValidation
+  type: boolean
+  default: false
+- name: terraformTarget
+  type: string
+  default: 'empty'
+
+jobs:
+- job: Terraform_plan
+  displayName: 'Terraform Plan'
+  workspace:
+    clean: all
+  steps:
+  - checkout: none
+
+  - task: DownloadPipelineArtifact@2
+    name: DownloadPipelineArtifact
+    displayName: 'Download Pipeline Artifact'
+    inputs:
+      preferTriggeringPipeline: true
+      path: '$(Pipeline.Workspace)'
+
+  - template: ../tasks/replace-tokens.yml
+    parameters:
+      infraSolutionFolder: ${{ parameters.infraSolutionFolder }}
+      workingDirectory: $(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}
+
+  - template: ../tasks/terraform-install-required-version-task.yml
+    parameters:
+      workingDirectory: "$(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}"
+
+  - pwsh: |
+      terraform --version
+      terraform init
+    name: Terraform_init
+    displayName: 'Terraform init'
+    workingDirectory: "$(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}"
+
+  - template: ../tasks/terraform-target-parser-task.yml
+    parameters:
+      terraformTarget: ${{ parameters.terraformTarget }}
+      infraSolutionFolder: ${{ parameters.infraSolutionFolder }}
+
+  - pwsh: |
+      $TargetArgs = ( '${{ parameters.terraformTarget }}' -eq 'empty' ) ? `
+      '' : ( "$(Target_arguments.PIPE_TERRAFORM_TARGET_STRING)" -eq '' ) ? `
+      '' : "$(Target_arguments.PIPE_TERRAFORM_TARGET_STRING)"
+
+      $ErrorActionPreference = 'Stop'
+      if ('${{ parameters.refreshOnly }}' -eq $True) {
+        Write-host "This is refresh only run."
+        if ( $TargetArgs -ne "" ) {
+          
+          Write-Host "Terraform target arguments found `"$TargetArgs`""
+          $command = "terraform plan -out=tfplan -input=false -var-file ${{ parameters.terraformVarsFile }} -var-file global.${{ parameters.terraformConfFileFormat }} -refresh-only $TargetArgs | Tee-Object $(Agent.TempDirectory)/plan_output.txt"
+          Write-host "Terraform cli command to be executed:"
+          $command
+          Invoke-Expression $command
+
+        } else {
+
+          terraform plan -out=tfplan -input=false `
+          -var-file ${{ parameters.terraformVarsFile }} `
+          -var-file global.${{ parameters.terraformConfFileFormat }} `
+          -refresh-only `
+          | Tee-Object $(Agent.TempDirectory)/plan_output.txt
+
+        }
+      } else {
+        if ( $TargetArgs -ne "" ) {
+
+          Write-Host "Terraform target arguments found `"$TargetArgs`""
+          $command = "terraform plan -out=tfplan -input=false -var-file ${{ parameters.terraformVarsFile }} -var-file global.${{ parameters.terraformConfFileFormat }} $TargetArgs | Tee-Object $(Agent.TempDirectory)/plan_output.txt"
+          Write-host "Terraform cli command to be executed:"
+          $command
+          Invoke-Expression $command
+          
+        } else {
+
+          terraform plan -out=tfplan -input=false `
+          -var-file ${{ parameters.terraformVarsFile }} `
+          -var-file global.${{ parameters.terraformConfFileFormat }} `
+          | Tee-Object $(Agent.TempDirectory)/plan_output.txt
+
+        }
+      }
+      
+      $plan_output = Get-Content "$(Agent.TempDirectory)/plan_output.txt"
+
+        if ($plan_output -match "No changes.") {
+        Write-host "##vso[task.setvariable variable=tfapply;isOutput=true]false"
+      }
+      else {
+        Write-host "##vso[task.setvariable variable=tfapply;isOutput=true]true"
+      }
+    name: Terraform_plan
+    displayName: 'Terraform plan'
+    workingDirectory: "$(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}"
+    condition: or( not( eq( variables['Target_arguments.PIPE_TERRAFORM_TARGET_STRING'], '' ) ), in('${{ parameters.terraformTarget }}', '', 'empty') )
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish artifact'
+    inputs:
+      targetPath: "$(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}/tfplan"
+      artifactName: "$(Build.BuildNumber)-tfplan-${{ replace(parameters.infraSolutionFolder, '/', '_') }}-${{ replace(parameters.environment, '.', '_') }}-$(System.JobAttempt)"
+    condition: or( not( eq( variables['Target_arguments.PIPE_TERRAFORM_TARGET_STRING'], '' ) ), in('${{ parameters.terraformTarget }}', '', 'empty') )
+
+- job: Validation
+  displayName: Validation
+  dependsOn: Terraform_plan
+  condition: and(eq('${{ parameters.ManualValidation }}', true), eq(dependencies.Terraform_plan.outputs['Terraform_plan.tfapply'], 'true'))
+  pool: server
+  timeoutInMinutes: 60
+  steps:
+  - task: ManualValidation@0
+    condition: eq('${{ parameters.ManualValidation }}', true)
+    timeoutInMinutes: 60
+    inputs:
+      instructions: 'Please validate the configuration'
+      onTimeout: 'Reject'
+ 
+- deployment: Terraform_Apply
+  displayName: 'Terraform Apply'
+  timeoutInMinutes: 120
+  dependsOn: Validation
+  condition: and(in(dependencies.Validation.result, 'Succeeded', 'Skipped'), eq(dependencies.Terraform_plan.outputs['Terraform_plan.tfapply'], 'true'))
+  environment: ${{ replace(parameters.environment, '.', '_') }}
+  workspace:
+    clean: all
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+
+        - template: ../tasks/replace-tokens.yml
+          parameters:
+            infraSolutionFolder: ${{ parameters.infraSolutionFolder }}
+            workingDirectory: $(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}
+
+        - template: ../tasks/terraform-install-required-version-task.yml
+          parameters:
+            workingDirectory: "$(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}"
+        
+        - task: DownloadPipelineArtifact@2
+          inputs:
+            artifactName: "$(Build.BuildNumber)-tfplan-${{ replace(parameters.infraSolutionFolder, '/', '_') }}-${{ replace(parameters.environment, '.', '_') }}-$(System.JobAttempt)"
+            targetPath: "$(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}"
+
+        - pwsh: |
+            terraform --version
+            terraform init
+          name: Terraform_init
+          displayName: 'Terraform init'
+          workingDirectory: "$(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}"
+        
+        - pwsh: |
+            if ('${{ parameters.refreshOnly }}' -eq $True) {
+              Write-host "This is refresh only run."
+              terraform apply -input=false -refresh-only "tfplan"
+            } else {
+              terraform apply -input=false "tfplan"
+            }
+          name: Terraform_apply
+          displayName: 'Terraform apply'
+          workingDirectory: "$(Pipeline.Workspace)/$(Build.BuildNumber)-${{ replace(parameters.infraSolutionFolder, '/', '_') }}/terraform/${{ parameters.infraSolutionFolder }}"

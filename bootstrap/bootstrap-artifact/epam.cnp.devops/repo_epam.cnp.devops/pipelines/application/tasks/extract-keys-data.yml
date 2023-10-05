@@ -1,0 +1,25 @@
+steps:
+- task: AzureCLI@2
+  displayName: 'Extract CosmosDB AppInsight keys'
+  inputs:
+    azureSubscription: $(ENV_SERVICE_CONNECTION_NAME)
+    scriptType: pscore
+    scriptLocation: inlineScript
+    inlineScript: |
+      Write-Host "---- Extract Azure CosmosDB key ----"
+      $cosmoDbKey = (az cosmosdb keys list --name "$(ENV_INFRA_SO_NAME)-cosdb-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)-01" `
+        --resource-group "$(ENV_INFRA_SO_NAME)-rg-$(ENV_INFRA_LOCATION_SHORT)-$(ENV_INFRA_TYPE)-$(ENV_INFRA_NAME_PREFIX)storage-01" | ConvertFrom-Json).primaryMasterKey
+      Write-Host "---- Extract Azure Application Insights key ----"
+      az config set extension.use_dynamic_install=yes_without_prompt
+      $appiInstrumentationKey = (az monitor app-insights component show --app "$(ENV_APPINS_NAME)" -g "$(ENV_MONITOR_RG)"| ConvertFrom-Json).instrumentationKey
+      if ($cosmoDbKey -and $appiInstrumentationKey) {
+        Write-Host "---- Cosmos DB and Application Insight keys extracted ----"
+        Write-Host "##vso[task.setvariable variable=PIPE_COSMOS_DB_KEY;issecret=true]$cosmoDbKey"
+        Write-Host "##vso[task.setvariable variable=PIPE_APPINS_INSTRUMENTATION_KEY;issecret=true]$appiInstrumentationKey" 
+      } elseif ($cosmoDbKey) {
+        throw "---- Could not detect Application Insight key ----"
+      } elseif ($appiInstrumentationKey) {
+        throw "---- Could not detect Cosmos DB key ----"
+      } else { 
+        throw "---- Could not detect Cosmos DB or\and Application Insight keys ----"
+      }

@@ -1,0 +1,41 @@
+parameters:
+- name: infraSolutionFolder
+  type: string
+- name: workingDirectory
+  type: string
+  default: "."
+
+steps:
+- pwsh: |
+    Write-Host "##vso[task.setvariable variable=PIPE_INFRA_SOLUTION_FOLDER]${{ parameters.infraSolutionFolder }}"
+    Write-Host "PIPE_INFRA_SOLUTION_FOLDER = ${{ parameters.infraSolutionFolder }}"
+
+    # Obtain organization name from the string like https://dev.azure.com/fabrikamfiber/.
+    $organizationName = $($env:ADO_ORGANIZATION_URI -split '/')[-2]
+
+    # SYSTEM_ACCESSTOKEN value could not be replaced by replacetokens task because of bug
+    # At the same time current soure URL suits more for local development (no need to tokenize URL)
+    # so we should use custom script https://github.com/microsoft/azure-pipelines-extensions/issues/873
+    Write-Host "Add Access Token to Git URL in files in directory ${{ parameters.workingDirectory }}:"
+    $files = Get-ChildItem "${{ parameters.workingDirectory }}\/*.*" -Recurse -Filter "*.*"
+    foreach ($file in $files) {
+      $content = [System.IO.File]::ReadAllText($file.FullName).Replace("git::https://$organizationName@", `
+      "git::https://$($env:SYSTEM_ACCESSTOKEN)@")
+      [System.IO.File]::WriteAllText($file.FullName, $content)
+      Write-Host "Processing $file ..."
+    }
+  name: Set_variables
+  displayName: 'Set auxiliary variable values'
+  env:
+    SYSTEM_ACCESSTOKEN: $(SYS_CODE_READ_PAT)
+    ADO_ORGANIZATION_URI: $(System.CollectionUri)
+
+- task: replacetokens@5
+  displayName: 'Replace tokens in files'
+  inputs:
+    rootDirectory: '${{ parameters.workingDirectory }}'
+    targetFiles: '**/*'
+    actionOnMissing: log warning
+    verbosity: 'detailed'
+    keepToken: true
+    enableTelemetry: false

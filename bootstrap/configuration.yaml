@@ -1,0 +1,53 @@
+### epam.cnp.devops
+- project: epam.cnp.devops
+  replaceContent:
+  - pattern: 
+      filePath: ""
+      fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+      oldValue: "#{org_name}#"
+  - pattern: 
+      filePath: ""
+      fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+      oldValue: "#{project_name}#"
+  - pattern: # DevOps repository name
+      filePath: ""
+      fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+      oldValue: "#{repo_name}#"
+      newValue: "epam.cnp.devops"
+  - pattern: 
+      filePath: ""
+      fileMask: ["*.yml"]
+      oldValue: "#{agent_pool}#"
+      newValue: "vmImage: ubuntu-latest"
+
+### epam.cnp.devops.app.v1
+- project: epam.cnp.devops.app.v1
+  replaceContent:
+  - pattern: 
+      filePath: ""
+      fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+      oldValue: "#{org_name}#"
+  - pattern: 
+      filePath: ""
+      fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+      oldValue: "#{project_name}#"
+  - pattern: # DevOps Project name
+      filePath: ""
+      fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+      oldValue: "#{project_devops_name}#"
+      newValue: "epam.cnp.devops"
+  - pattern: # DevOps repository name
+      filePath: ""
+      fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+      oldValue: "#{repo_devops_name}#"
+      newValue: "epam.cnp.devops"
+  - pattern: # App repository name
+      filePath: ""
+      fileMask: ["*.yml", "*.tf", "*.md", "*.yaml"]
+      oldValue: "#{repo_name}#"
+      newValue: "epam.cnp.todoapp"
+  - pattern: 
+      filePath: ""
+      fileMask: ["*.yml"]
+      oldValue: "#{agent_pool}#" 
+      newValue: "vmImage: ubuntu-latest"

@@ -1,0 +1,84 @@
+parameters:
+- name: helmChart
+  type: string
+  default: ''
+- name: helmChartPath
+  type: string
+  default: 'containers/infrastructure/helm-charts'
+- name: helmChartRepo
+  type: string
+  default: 'templates'
+- name: helmChartValuesFilePath
+  type: string
+  default: ''
+- name: helmChartValuesFile
+  type: string
+  default: ''
+
+steps:
+
+- pwsh: |
+    $valuePath = "${{ parameters.helmChartValuesFilePath }}"
+    if ($valuePath.length -eq 0) {
+      $helmEnvValuesPath = "${{ parameters.helmChartRepo }}/${{ parameters.helmChartPath }}"
+      Write-Host "##vso[task.setvariable variable=PIPE_HELM_CHART_VALUES_FILE_PATH]$helmEnvValuesPath"
+      Write-Host "##vso[task.setvariable variable=PIPE_HELM_CHART_PATH]$helmEnvValuesPath"
+      Write-Host "helmEnvValues: $helmEnvValuesPath"
+    }
+    else {
+      $helmEnvValuesPath = "s/${{ parameters.helmChartValuesFilePath }}"
+      $helmChartPath = "${{ parameters.helmChartRepo }}/${{ parameters.helmChartPath }}"
+      Write-Host "##vso[task.setvariable variable=PIPE_HELM_CHART_VALUES_FILE_PATH]$helmEnvValuesPath"
+      Write-Host "##vso[task.setvariable variable=PIPE_HELM_CHART_PATH]$helmChartPath"
+      Write-Host "helmEnvValues: $helmEnvValuesPath"
+      Write-Host "helmChartPath: $helmChartPath"
+    }
+  displayName: Set Helm Chart Values File Path
+
+- task: replacetokens@3
+  displayName: Inject ${{ parameters.helmChart }} application and environment values
+  inputs:
+    targetFiles: |
+      $(Agent.BuildDirectory)/$(PIPE_HELM_CHART_VALUES_FILE_PATH)/${{ parameters.helmChart }}/**/*.*
+      $(Agent.BuildDirectory)/$(PIPE_HELM_CHART_PATH)/${{ parameters.helmChart }}/**/*.*
+    actionOnMissing: fail
+    keepToken: true
+
+- pwsh: |
+    Get-ChildItem -Path "$(Agent.BuildDirectory)/${{ parameters.helmChartRepo }}/${{ parameters.helmChartPath }}/${{ parameters.helmChart }}" -Recurse -File |
+    where { $_.Extension -in ".yml",".yaml" -and $_.BaseName -notin "Chart" } |
+    foreach { Write-Output "This is $_"; Get-Content $_.Fullname }
+  displayName: Display tokenized helm charts for ${{ parameters.helmChart }}
+
+- pwsh: |
+    $valueFileName = "${{ parameters.helmChartValuesFile }}"
+    if ($valueFileName.length -eq 0) {
+      $envValuesFile = "$(Agent.BuildDirectory)/$(PIPE_HELM_CHART_VALUES_FILE_PATH)/${{ parameters.helmChart }}/$(ENV_KUBERNETES_NAMESPACE).values.yaml"
+    }
+    else {
+      $envValuesFile = "$(Agent.BuildDirectory)/$(PIPE_HELM_CHART_VALUES_FILE_PATH)/${{ parameters.helmChart }}/$valueFileName"
+    }
+    $helmEnvValues = ''
+    Write-Host "Check if additional $envValuesFile file exist."
+    if ($(Test-Path -Path $envValuesFile) -eq $True) {
+      $helmEnvValues = " --values $envValuesFile"
+    }
+    Write-Host "##vso[task.setvariable variable=PIPE_HELM_ENV_VALUES]$helmEnvValues"
+    Write-Host "Helm environment values file: $helmEnvValues"
+  displayName: Check additional ${{ parameters.helmChart }} env.values.yaml files
+
+- task: HelmDeploy@0
+  displayName: Deploy ${{ parameters.helmChart }} charts
+  inputs:
+    connectionType: 'Azure Resource Manager'
+    azureSubscriptionEndpoint: '$(ENV_SERVICE_CONNECTION_NAME)'
+    azureResourceGroup: "$(ENV_AKS_RG)"
+    kubernetesCluster: "$(ENV_AKS_NAME)"
+    namespace: $(ENV_KUBERNETES_NAMESPACE)
+    command: upgrade
+    arguments: '$(PIPE_HELM_ENV_VALUES) --timeout $(SYS_HELM_DEPLOY_TIMEOUT) --create-namespace'
+    chartType: FilePath
+    chartPath: '$(Agent.BuildDirectory)/$(PIPE_HELM_CHART_PATH)/${{ parameters.helmChart }}'
+    releaseName: '${{ parameters.helmChart }}-$(ENV_KUBERNETES_NAMESPACE)'
+    force: false
+    waitForExecution: true

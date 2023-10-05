@@ -1,0 +1,33 @@
+# This pipeline could be used mostly for data publishing between stages to share data.
+# It need us to overcome Azure DevOps pipelines limitations.
+parameters:
+- name: FileContent
+  type: string
+- name: FileName
+  type: string
+  default: "result.json"
+- name: FileDir
+  type: string
+  default: "$(Pipeline.Workspace)/exported_data"
+- name: ArtifactName
+  type: string
+  default: "data"
+
+steps:
+- pwsh: |
+    # The script creates JSON file from JSON formated input string
+    Write-Host "---- Creating ${{ parameters.FileDir }} directory"
+    mkdir -p ${{ parameters.FileDir }}
+    $json_template = @"
+    {
+      ${{ parameters.FileContent }}
+    }
+    "@
+    Write-Host "---- Creating the JSON file ${{ parameters.FileName }} in ${{ parameters.FileDir }} directory"
+    Set-Content -Path "${{ parameters.FileDir }}/${{ parameters.FileName }}" -Value $json_template
+  name: GenerateJSONfile
+  displayName: 'Generate JSON service file'
+
+- publish: ${{ parameters.FileDir }}
+  artifact: ${{ parameters.ArtifactName }}
+  displayName: 'Upload pipeline artifact ${{ parameters.ArtifactName }}'

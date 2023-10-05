@@ -1,0 +1,54 @@
+parameters:
+- name: environment
+  type: string
+  default: ''
+
+jobs:
+- deployment: Deploy_CertManager
+  timeoutInMinutes: 20
+  displayName: Deploy ${{ replace(parameters.environment, '.', '_') }} CertManager
+  environment: ${{ replace(parameters.environment, '.', '_') }}
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - template: ../../operations/tasks/init-helm-deployment.yml
+
+        - task: HelmDeploy@0
+          displayName: 'CertManager Add jetstack repository'
+          inputs:
+            connectionType: 'Azure Resource Manager'
+            azureSubscriptionEndpoint: '$(ENV_SERVICE_CONNECTION_NAME)'
+            azureResourceGroup: "$(ENV_AKS_RG)"
+            kubernetesCluster: "$(ENV_AKS_NAME)"
+            command: repo
+            arguments: "add jetstack https://charts.jetstack.io"
+            force: true
+            waitForExecution: true
+
+        - task: HelmDeploy@0
+          displayName: 'CertManager Update repo'
+          inputs:
+            connectionType: 'Azure Resource Manager'
+            azureSubscriptionEndpoint: '$(ENV_SERVICE_CONNECTION_NAME)'
+            azureResourceGroup: "$(ENV_AKS_RG)"
+            kubernetesCluster: "$(ENV_AKS_NAME)"
+            command: repo
+            arguments: "update"
+            force: true
+            waitForExecution: true
+
+        - task: HelmDeploy@0
+          displayName: 'CertManager Deploy Cert Manager'
+          inputs:
+            connectionType: 'Azure Resource Manager'
+            azureSubscriptionEndpoint: '$(ENV_SERVICE_CONNECTION_NAME)'
+            azureResourceGroup: "$(ENV_AKS_RG)"
+            kubernetesCluster: "$(ENV_AKS_NAME)"
+            namespace: '$(ENV_KUBERNETES_NAMESPACE)'
+            command: upgrade
+            arguments: '--version v1.9.1 --set installCRDs=true --timeout 600s --create-namespace'
+            chartName: jetstack/cert-manager
+            releaseName: cert-manager
+            force: false
+            waitForExecution: true

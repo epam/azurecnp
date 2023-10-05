@@ -1,0 +1,217 @@
+# The pipeline logic based on scaled trunk based development strategy.
+# Pay attention that most of the templates have parameters, some of them are mandatory!
+# To automatically trigger the pipeline, you may use next configuration:
+# trigger:
+# - main
+# - release/*
+# - feature/*
+
+parameters:
+- name: helmChartRepo
+  type: string
+  default: 'templates'
+- name: buildContextVG
+  type: string
+  default: 'company.dev.env.example'
+- name: environmentObjects
+  type: object
+  default: 
+  - envName: 'dev'
+    VG: 'company.dev.env.example'
+  - envName: 'qa'
+    VG: 'company.qa.env.example'
+  - envName: 'prod'
+    VG: 'company.prod.env.example'
+
+stages:
+- stage: Build
+  displayName: 'App. Build and Test'
+  condition: or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), contains(variables['Build.SourceBranch'], 'refs/heads/release/'), contains(variables['Build.SourceBranch'], 'refs/heads/feature/'))
+  variables:
+  - group: ${{ parameters.buildContextVG }}
+  jobs:
+  - job: Build_Job
+    displayName: 'App. Build and Test'
+    workspace:
+      clean: all
+    steps:
+    - template: ../operations/tasks/clone-repositories.yml
+      parameters:
+        repositories:
+        - self
+        - ${{ parameters.helmChartRepo }}
+    - template: tasks/dotnet-generate-release-version.yml
+      parameters:
+        rootDir: $(System.DefaultWorkingDirectory)/$(Build.Repository.Name)
+    - template: tasks/dotnetcore-build.yml
+      parameters:
+        sourceRepoPath: $(System.DefaultWorkingDirectory)/$(Build.Repository.Name)
+        enableSonarCloudAnalyze: false
+        ${{ if or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), contains(variables['Build.SourceBranch'], 'refs/heads/release/')) }}:
+          dotnetPublish: true
+    - ${{ if or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), contains(variables['Build.SourceBranch'], 'refs/heads/release/')) }}:
+      - template: tasks/docker-build.yml
+        parameters: 
+          rootDir: $(System.DefaultWorkingDirectory)/$(Build.Repository.Name)
+    - ${{ if or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), contains(variables['Build.SourceBranch'], 'refs/heads/release/')) }}:
+      - template: ../operations/tasks/publish-processed-data.yml
+        parameters:
+          FileContent: '"PIPE_RELEASE_ARTIFACTNAME": "$(PIPE_RELEASE_ARTIFACTNAME)", "PIPE_DEV_ENV_ACR_NAME": "$(ENV_ACR_NAME)"'
+          ArtifactName: "Build"
+
+# Use each expression allows us to dynamically map values from object parameter
+- ${{ each environmentObject in parameters.environmentObjects }} :
+  - ${{ if in(environmentObject.envName, 'dev') }}:
+    - stage: Deploy_on_${{ environmentObject.envName }}
+      displayName: 'Deploy on ${{ environmentObject.envName }}'
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      dependsOn: Build
+      variables:
+      - group: ${{ environmentObject.VG }}
+
+      jobs:
+      - deployment: Deploy_APP_on_${{ environmentObject.envName }}
+        displayName: 'Deploy APP on ${{ environmentObject.envName }}'
+        environment: ${{ environmentObject.envName }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+              - template: ../operations/tasks/clone-repositories.yml
+                parameters:
+                  repositories:
+                  - ${{ parameters.helmChartRepo }}
+
+              - template: tasks/extract-keys-data.yml
+              - template: ../operations/tasks/download-processed-data.yml
+                parameters:
+                  ArtifactName: "Build"
+              - template: ../operations/tasks/init-helm-deployment.yml
+              - template: ../operations/tasks/helm-deployment.yml
+                parameters:
+                  helmChart: $(APP_NAME)
+                  helmChartRepo: ${{ parameters.helmChartRepo }}
+                  helmChartPath: 'containers/application/helm-charts'
+      - template: jobs/synthetic-test.yaml
+        parameters:
+          jobName: 'Deployment_verification_tests_${{ environmentObject.envName }}'
+          command: 'Write-Host "---- Deployment verification tests. ----"'
+          DependsOn: ["Deploy_APP_on_${{ environmentObject.envName }}"]
+      - template: jobs/synthetic-test.yaml
+        parameters:
+          jobName: 'Integration_tests'
+          command: 'Write-Host "---- Integration tests. ----"'
+          DependsOn: ["Deployment_verification_tests_${{ environmentObject.envName }}"]
+
+  - ${{ if in(environmentObject.envName, 'qa') }}:
+    - stage: Deploy_on_${{ environmentObject.envName }}
+      displayName: 'Deploy on ${{ environmentObject.envName }}'
+      ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+        dependsOn: Deploy_on_dev
+      ${{ if contains(variables['Build.SourceBranch'], 'refs/heads/release/') }}:
+        condition: and(succeeded(), contains(variables['Build.SourceBranch'], 'refs/heads/release/'))
+        dependsOn: Build
+      variables:
+      - group: ${{ environmentObject.VG }}
+
+      jobs:
+      - deployment: Deploy_APP_on_${{ environmentObject.envName }}
+        displayName: 'Deploy APP on ${{ environmentObject.envName }}'
+        environment: ${{ environmentObject.envName }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+              - template: ../operations/tasks/clone-repositories.yml
+                parameters:
+                  repositories:
+                  - ${{ parameters.helmChartRepo }}
+
+              - template: tasks/extract-keys-data.yml
+              - template: ../operations/tasks/download-processed-data.yml
+                parameters:
+                  ArtifactName: "Build"
+              - template: ../operations/tasks/init-helm-deployment.yml
+              - template: ../operations/tasks/helm-deployment.yml
+                parameters:
+                  helmChart: $(APP_NAME)
+                  helmChartRepo: ${{ parameters.helmChartRepo }}
+                  helmChartPath: 'containers/application/helm-charts'
+      - template: jobs/synthetic-test.yaml
+        parameters:
+          jobName: 'Deployment_verification_tests_${{ environmentObject.envName }}'
+          command: 'Write-Host "---- Deployment verification tests. ----"'
+          DependsOn: ["Deploy_APP_on_${{ environmentObject.envName }}"]
+      - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:              
+        - template: jobs/synthetic-test.yaml
+          parameters:
+            jobName: 'Feature_tests'
+            command: 'Write-Host "---- Feature tests. ----"'
+            DependsOn: ["Deployment_verification_tests_${{ environmentObject.envName }}"]
+        - template: jobs/synthetic-test.yaml
+          parameters:
+            jobName: 'High_priority_risk_based_tests'
+            command: 'Write-Host "---- High priority risk based tests. ----"'
+            DependsOn: ["Feature_tests"]
+      - ${{ if contains(variables['Build.SourceBranch'], 'refs/heads/release/') }}:
+      # Non-functional tests are executed only during release flow.
+        - template: jobs/synthetic-test.yaml
+          parameters:
+            jobName: 'Low_priority_risk_based_tests'
+            command: 'Write-Host "---- Low priority risk based tests. ----"'
+            DependsOn: ["Deployment_verification_tests_${{ environmentObject.envName }}"]
+        - template: jobs/synthetic-test.yaml
+          parameters:
+            jobName: 'Exploratory_testing'
+            command: 'Write-Host "---- Exploratory testing. ----"'
+            DependsOn: ["Low_priority_risk_based_tests"]
+        - template: jobs/synthetic-test.yaml
+          parameters:
+            jobName: 'Non_functional_testing'
+            command: 'Write-Host "---- Non-functional testing. ----"'
+            DependsOn: ["Exploratory_testing"]
+
+  - ${{ if in(environmentObject.envName, 'prod') }}:
+    # Scale_canary_replicas stage sets $(APP_REPLICA_COUNT) pods number to prod deployment. Using $(PIPE_APP_TRAFFIC_PERCENTAGE_CANARY) variable calculates canary pods number.
+    - stage: Deploy_on_${{ environmentObject.envName }}
+      displayName: 'Deploy on ${{ environmentObject.envName }}'
+      condition: and(succeeded(), contains(variables['Build.SourceBranch'], 'refs/heads/release/'))
+      dependsOn: Deploy_on_qa
+      variables:
+      - group: ${{ environmentObject.VG }}
+
+      jobs:
+      - deployment: Deploy_APP_on_${{ environmentObject.envName }}
+        displayName: 'Deploy APP on ${{ environmentObject.envName }}'
+        environment: ${{ environmentObject.envName }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+              - template: ../operations/tasks/clone-repositories.yml
+                parameters:
+                  repositories:
+                  - ${{ parameters.helmChartRepo }}
+              - template: tasks/extract-keys-data.yml
+              - template: ../operations/tasks/download-processed-data.yml
+                parameters:
+                  ArtifactName: "Build"
+              - template: tasks/docker-reimport.yml
+                parameters:
+                  sourceACR: $(PIPE_DEV_ENV_ACR_NAME)
+                  destinationACR: $(ENV_ACR_NAME)
+                  sourceImage: $(APP_NAME):$(PIPE_RELEASE_ARTIFACTNAME)
+                  destinationImage: $(APP_NAME):$(APP_DOCKER_IMAGE_STABLE_TAG)
+
+              - template: ../operations/tasks/init-helm-deployment.yml
+              - template: ../operations/tasks/helm-deployment.yml
+                parameters:
+                  helmChart: $(APP_NAME)
+                  helmChartRepo: ${{ parameters.helmChartRepo }}
+                  helmChartPath: 'containers/application/helm-charts'
+      - template: jobs/synthetic-test.yaml
+        parameters:
+          jobName: 'Deployment_verification_tests'
+          command: 'Write-Host "---- Deployment verification tests. ----"'
+          DependsOn: ["Deploy_APP_on_${{ environmentObject.envName }}"]

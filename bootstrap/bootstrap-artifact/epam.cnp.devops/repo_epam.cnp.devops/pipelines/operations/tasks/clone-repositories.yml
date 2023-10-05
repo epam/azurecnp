@@ -1,0 +1,16 @@
+parameters:
+- name: repositories
+  type: object
+  default: {}
+
+
+steps:
+- ${{ each repository in parameters.repositories }}:
+  - ${{  if ne(repository, 'self') }}:
+    - checkout: ${{ repository }}
+      fetchDepth: 5
+      path: ${{ repository }}
+
+  - ${{  if eq(repository, 'self') }}:
+    - checkout: ${{ repository }}
+      fetchDepth: 5

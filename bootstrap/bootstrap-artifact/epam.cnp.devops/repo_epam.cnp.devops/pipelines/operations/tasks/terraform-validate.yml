@@ -1,0 +1,17 @@
+parameters:
+- name: workingDirectory
+  type: string
+  default: "."
+
+steps:
+- pwsh: |
+    terraform --version
+    terraform init
+  workingDirectory: '${{ parameters.workingDirectory }}'
+  displayName: 'Run terraform init'
+  failOnStderr: true
+
+- pwsh: terraform validate
+  workingDirectory: '${{ parameters.workingDirectory }}'
+  displayName: 'Run terraform validate'
+  failOnStderr: true

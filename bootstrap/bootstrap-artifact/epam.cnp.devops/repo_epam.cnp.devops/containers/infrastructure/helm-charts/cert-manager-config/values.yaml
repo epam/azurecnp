@@ -1,0 +1,14 @@
+# issuerType could be:
+# issuerType: issuer - to deploy namespace based issuer
+# issuerType: selfsigned - to deploy SelfSigned issuer
+# issuerType: all - to deploy all kinds
+issuerType: issuer
+
+# Kubernetes issuer namespace
+namespace: {}
+
+# Let's Encrypt server address. Used in case of using not a SelfSigned issuer.
+server: {}
+
+# Let's Encrypt email account. Used in case of using not a SelfSigned issuer.
+email: {}

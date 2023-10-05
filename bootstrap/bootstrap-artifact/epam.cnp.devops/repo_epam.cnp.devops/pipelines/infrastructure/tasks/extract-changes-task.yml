@@ -1,0 +1,37 @@
+parameters:
+- name: infraSolutionFolder
+  type: string
+- name: terraformConfFileFormat
+  type: string
+  default: tfvars
+
+steps:
+- pwsh: |
+    $FILES = git show --pretty="" --name-only $(Build.SourceVersion) | Select-string ${{ parameters.infraSolutionFolder }}
+    Write-host "Modified files:"
+    Write-host "$FILES"
+    Write-host ""
+
+    $CHANGED_ENVS = Write-host "$FILES" | Select-string "_configuration/.*.${{ parameters.terraformConfFileFormat }}$"
+    Write-host "Changed environments:"
+    Write-host "$CHANGED_ENVS" | Split-Path -LeafBase
+
+    # If the build reason is not CI related(manual OR scheduled) then run all stages
+    # Else set boolean value if any file related to solution changed outside of configuration
+
+    if (("$(Build.Reason)" -eq "Manual") -or ("$(Build.Reason)" -eq "Schedule")) {
+      Write-host '##vso[task.setvariable variable=runAll;isoutput=true]true'
+      Write-host "Set runAll to TRUE cause this is not a CI build"
+    }
+    else {
+      if (Write-host "$FILES" | Select-string "_configuration" -notmatch) {
+        Write-host '##vso[task.setvariable variable=runAll;isoutput=true]true'
+        Write-host "Set runAll to TRUE cause root module or pipeline was modifed"
+      }
+        Write-host '##vso[task.setvariable variable=runAll;isoutput=true]false'
+        Write-host "Set runAll to FALSE cause only environment configuration was modified"
+    }
+    Write-host "##vso[task.setvariable variable=changedEnvs;isoutput=true]$(Write-host "$CHANGED_ENVS")"
+    exit 0
+  name: extractChanges
+  displayName: Extract changes to files 

@@ -1,0 +1,33 @@
+### Pay attention that most of templates have parameters, some of them are mandatory!
+parameters:
+- name: envList
+  type: object
+  default: {}
+
+stages:
+- ${{ each environment in parameters.envList }}:
+  - ${{ if or(contains(environment, 'dev'), contains(environment, 'prod')) }}:
+    - stage: Deploy_shared_infrastructure_${{ replace(environment, '.', '_') }}
+      displayName: Deploy ${{ replace(environment, '.', '_') }} shared infrastructure
+      condition: succeeded()
+      variables:
+      - group: ${{ environment }}
+      - name: ENV_KUBERNETES_NAMESPACE
+        value: cert-manager
+      jobs:
+      - template: jobs/kubernetes-shared-infrastructure-deployment.yml
+        parameters:
+          environment: ${{ replace(environment, '.', '_') }}
+
+  - stage: Deploy_environment_infrastructure_${{ replace(environment, '.', '_') }}
+    displayName: Deploy ${{ replace(environment, '.', '_') }} environment infrastructure
+    ${{ if or(contains(environment, 'dev'), contains(environment, 'prod')) }}:
+      dependsOn: Deploy_shared_infrastructure_${{ replace(environment, '.', '_') }}
+    condition: succeeded()
+    variables:
+    - group: ${{ environment }}
+    jobs:
+    - template: jobs/kubernetes-env-infrastructure-deployment.yml
+      parameters:
+        environment: ${{ replace(environment, '.', '_') }}
+        helmChartRepo: templates

@@ -1,0 +1,54 @@
+parameters:
+- name: environment
+  type: string
+  default: ''
+- name: deployCertManager
+  type: boolean
+  default: true
+- name: deployIngress
+  type: boolean
+  default: true
+- name: helmChartRepo
+  type: string
+  default: 'templates'
+- name: helmChartValuesFilePath
+  type: string
+  default: ''
+- name: helmChartValuesFile
+  type: string
+  default: ''
+- name: repositories
+  type: object
+  default: 
+  - templates
+
+jobs:
+- deployment: Deploy_Kubernetes_environment
+  displayName: Deploy ${{ parameters.environment }} infrastructure
+  environment: ${{ parameters.environment }}
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - template: ../../operations/tasks/clone-repositories.yml
+          parameters:
+            repositories:
+            - ${{ parameters.repositories }}
+
+        - template: ../../operations/tasks/init-helm-deployment.yml
+
+        - ${{ if eq(parameters.deployCertManager, true) }}:
+          - template: ../../operations/tasks/helm-deployment.yml
+            parameters:
+              helmChart: '$(ENV_HELM_CHART_CERT)'
+              helmChartRepo: ${{ parameters.helmChartRepo }}
+              helmChartValuesFilePath: ${{ parameters.helmChartValuesFilePath }}
+              helmChartValuesFile: ${{ parameters.helmChartValuesFile }}
+
+        - ${{ if eq(parameters.deployIngress, true) }}:
+          - template: ../../operations/tasks/helm-deployment.yml
+            parameters:
+              helmChart: '$(ENV_HELM_CHART_INGR)'
+              helmChartRepo: ${{ parameters.helmChartRepo }}
+              helmChartValuesFilePath: ${{ parameters.helmChartValuesFilePath }}
+              helmChartValuesFile: ${{ parameters.helmChartValuesFile }}

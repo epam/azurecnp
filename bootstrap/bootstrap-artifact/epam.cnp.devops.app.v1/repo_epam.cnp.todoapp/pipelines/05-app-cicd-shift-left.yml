@@ -1,0 +1,47 @@
+# Resource repository where pipeline templates located.
+# This is mandatory for linking to templates in other repository.
+resources:
+  repositories:
+  - repository: templates
+    type: git
+    name: #{project_devops_name}#/#{repo_devops_name}#
+    endpoint: "tfs_cnpdevopsproject"
+    ref: 'refs/heads/develop'
+
+  # - repository: todoapp
+  #   type: git
+  #   name: #{project_name}#/#{repo_name}#
+  #   # endpoint: "tfs_cnpdevopsproject"
+  #   ref: 'refs/heads/feature/fuat'
+
+pool:
+  #{agent_pool}#
+
+trigger:
+  branches:
+    include:
+    - shift/*
+  paths:
+    include:
+    - src/*
+    - todo.tests/*
+    - Dockerfile
+
+parameters:
+- name: environmentObjects
+  type: object
+  default: 
+  - envName: 'shift'
+    VG: 'opensource.shift.env.shared'
+
+variables:
+- group: opensource.com.app.todoapp
+- group: opensource.com.env.shared
+- group: opensource.com.sys.global
+
+stages:
+- template: pipelines/application/app-v1-cicd-shift-left.yml@templates
+  parameters:
+    environmentObjects: ${{ parameters.environmentObjects }}
+    buildContextVG: 'opensource.shift.env.shared'
+    helmChartValuesFilePath: '$(Build.Repository.Name)/pipelines/_configuration/containers'

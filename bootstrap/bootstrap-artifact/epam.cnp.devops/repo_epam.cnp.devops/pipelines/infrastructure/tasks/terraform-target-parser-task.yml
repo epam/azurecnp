@@ -1,0 +1,33 @@
+parameters:
+- name: terraformTarget
+  type: string
+- name: infraSolutionFolder
+  type: string
+
+steps:
+- pwsh: |
+    $paths = '${{ parameters.terraformTarget }}' -split ';'
+    $dir = '${{ parameters.infraSolutionFolder }}/'
+    $output = ''
+    
+    if ( $paths -match $dir ) {
+      $paths.Trim() | ForEach-Object {
+        if ($_ -match $dir) {
+          $_.Replace("`"", "```"").Replace($dir, '') -split ',' | ForEach-Object {
+            $output += "-target='$_' "
+          }
+        }
+      }
+      $output = $output.Trim()
+    }
+    Write-Host "Input target string '${{ parameters.terraformTarget }}'"
+    Write-Host "Terraform solution folder `"$dir`""      
+    Write-Host "Terraform target arguments `"$output`""
+    
+    if ( $output -eq '' ) {
+      Write-Host "There are no Terraform target arguments. `"Terraform plan`" step won't be executed."
+    }
+    Write-Host "##vso[task.setvariable variable=PIPE_TERRAFORM_TARGET_STRING;isOutput=true]$output"
+  name: Target_arguments
+  displayName: 'Terraform target arguments parsing'
+  condition: not(in('${{ parameters.terraformTarget }}', '', 'empty'))

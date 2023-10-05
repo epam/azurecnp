@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "#{APP_NAME}#.fullname" . }}-canary
+  labels:
+{{ include "#{APP_NAME}#.labels" . | indent 4 }}
+spec:
+{{- with .Values.strategy  }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+  replicas: {{ .Values.canaryReplicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "#{APP_NAME}#.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      deploymentMethod: canary
+      release: canary
+  template:
+    metadata:
+#      annotations:
+# Function needed to change sha256sum of Deployment to restart POD after deploy
+#        rollsha256sum: {{ randAlphaNum 5 | quote }}
+      labels:
+        app.kubernetes.io/name: {{ include "#{APP_NAME}#.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        deploymentMethod: canary
+        release: canary
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.canaryTag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          volumeMounts:
+            {{- toYaml .Values.volumeMounts | nindent 12 }}
+      volumes:
+        {{- toYaml .Values.volumes | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
