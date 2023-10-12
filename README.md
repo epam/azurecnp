@@ -177,9 +177,6 @@ ENV_INFRA_NAME_PREFIX – change value to some unique string (use letters and nu
 ENV_INFRA_SO_NAME – optionally to change;<br>
 ENV_TF_STATE_FOLDER – optionally to change.
 </li>
-<li>
-At the moment pipelines preconfigure to use like source <strong>main</strong> branch, so to update it to <strong>develop</strong> branch it is need to update each pipeline. Go to the "pipelines" -> click on each pipeline -> "Edit" -> Click on three dot "More actions" -> "Triggers" -> "YAML" page -> "Get sources" -> Update "Default branch for manual and scheduled builds" field to <strong>develop</strong> branch.
-</li>
 <li>(Optional) Create branches and assign branch policies to organize CI/CD strategy please check CI/CD concepts overview.</li>
 </ol>
 

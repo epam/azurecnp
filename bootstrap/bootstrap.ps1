@@ -341,6 +341,7 @@ function Bootstrap-AzDoProject {
                     path = $_.path
                     repoName = $_.repo_id
                     yamlPath = $_.yml_path
+                    defaultBranch = $_.defaultBranch
                     authHeader = $authHeader
                 }
                 $pipe = New-AzDoBuildDefenition @pipeArguments

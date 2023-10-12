@@ -542,6 +542,7 @@ function New-AzDoBuildDefenition {
         [string]$path,
         [string]$repoName,
         [string]$yamlPath,
+        [string]$defaultBranch,
         [hashtable]$authHeader,
         [string]$apiVersion = "6.0"
     )
@@ -555,7 +556,7 @@ function New-AzDoBuildDefenition {
         repository = @{
             name = $repoName -replace " ", "%20"
             type = "TfsGit"
-            defaultBranch = "main"
+            defaultBranch = $defaultBranch -replace " ", "%20"
         }
         process = @{
             yamlFilename = $yamlPath -replace " ", "%20"
